@@ -1,0 +1,33 @@
+const mongoose = require("mongoose");
+const passengerSchema=new mongoose.Schema({
+name:{
+    type:String,
+    required:true
+},
+rollNo:{
+    type:String,
+    required:true
+},
+stopName:{
+    type:String,
+    required:true
+},
+bus:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Bus"
+},
+route:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Route"
+},
+gaurdian:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Gaurdian"
+},
+status:{
+    type:String,
+    enum:["active","inactive"],
+    default:"active"
+}
+});
+module.exports=mongoose.model("Passenger",passengerSchema)
