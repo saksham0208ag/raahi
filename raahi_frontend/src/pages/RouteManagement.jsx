@@ -76,6 +76,18 @@ const RouteManagement = () => {
     }
   };
 
+  const handleDeleteRoute = async (routeId) => {
+    if (!window.confirm("Delete this route? Assigned buses/passengers will be unlinked.")) {
+      return;
+    }
+    try {
+      await axios.delete(`/api/routes/${routeId}`);
+      loadData();
+    } catch (error) {
+      alert(error?.response?.data?.error || "Failed to delete route");
+    }
+  };
+
   return (
     <div className="route_mgmt">
       <h3 className="route_mgmt_title">Route Management</h3>
@@ -116,12 +128,13 @@ const RouteManagement = () => {
               <th className="th">Stops</th>
               <th className="th">Assigned Bus</th>
               <th className="th">Assign / Change Bus</th>
+              <th className="th">Delete</th>
             </tr>
           </thead>
           <tbody>
             {routes.length === 0 ? (
               <tr>
-                <td className="td" colSpan="4">No routes found</td>
+                <td className="td" colSpan="5">No routes found</td>
               </tr>
             ) : (
               routes.map((route) => {
@@ -155,6 +168,15 @@ const RouteManagement = () => {
                           Assign
                         </button>
                       </div>
+                    </td>
+                    <td className="td">
+                      <button
+                        className="pm_header_button"
+                        type="button"
+                        onClick={() => handleDeleteRoute(route._id)}
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 );

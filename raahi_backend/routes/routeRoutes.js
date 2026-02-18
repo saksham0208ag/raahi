@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const Route = require("../models/Route");
+const Bus = require("../models/Bus");
+const Passenger = require("../models/Passenger");
 
 const defaultStops = [
   "Main Gate",
@@ -77,6 +79,35 @@ router.get("/", async (req, res) => {
     res.json(routes);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE ROUTE
+router.delete("/:id", async (req, res) => {
+  try {
+    const routeId = req.params.id;
+
+    const route = await Route.findById(routeId);
+    if (!route) {
+      return res.status(404).json({ error: "Route not found" });
+    }
+
+    // Unlink dependent records to avoid dangling references.
+    const busUpdate = await Bus.updateMany({ route: routeId }, { $unset: { route: 1 } });
+    const passengerUpdate = await Passenger.updateMany(
+      { route: routeId },
+      { $unset: { route: 1, bus: 1 } }
+    );
+
+    await Route.findByIdAndDelete(routeId);
+
+    res.json({
+      message: "Route deleted successfully",
+      unlinkedBuses: busUpdate.modifiedCount || 0,
+      unlinkedPassengers: passengerUpdate.modifiedCount || 0
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
