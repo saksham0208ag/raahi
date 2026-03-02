@@ -571,6 +571,26 @@ const BusTracking = ({ passengerId, passengerProfile, theme = "light" }) => {
                 <button onClick={() => quickReport("Need assistance")}>Need Assistance</button>
               </div>
 
+              <div className="card-block route-timeline">
+                <h3>All Stops Timeline</h3>
+                {stopNames.map((stop, index) => {
+                  const stateClass =
+                    index < currentStopIndex
+                      ? "timeline-stop-completed"
+                      : index === currentStopIndex
+                        ? "timeline-stop-current"
+                        : "timeline-stop-upcoming";
+                  const isUserStop = index === studentStopIndex;
+                  return (
+                    <div key={`${stop}-${index}`} className={`timeline-stop-row ${stateClass}`}>
+                      <span className="timeline-stop-dot" />
+                      <span className="timeline-stop-name">{stop}</span>
+                      {isUserStop && <span className="timeline-stop-tag">Your Stop</span>}
+                    </div>
+                  );
+                })}
+              </div>
+
               <div className="student-info card-block">
                 <h3>My Bus Context</h3>
                 <p><b>Route:</b> {passengerProfile?.routeName || "N/A"}</p>
