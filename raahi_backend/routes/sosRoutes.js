@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const SOS = require("../models/SOS");
 const Passenger = require("../models/Passenger");
+const { requireOrganization } = require("../middleware/organizationContext");
+
+router.use(requireOrganization);
 
 let nodemailer = null;
 let twilio = null;
@@ -96,6 +99,40 @@ async function sendGuardianSMS({ toPhone, guardianName, passengerName, locationL
   }
 }
 
+const toWhatsAppAddress = (phone) => {
+  const value = String(phone || "").trim();
+  if (!value) return "";
+  return value.startsWith("whatsapp:") ? value : `whatsapp:${value}`;
+};
+
+async function sendGuardianWhatsApp({ toPhone, guardianName, passengerName, locationLink, time }) {
+  try {
+    if (!toPhone) return { sent: false, reason: "guardian phone missing" };
+    if (!twilio) return { sent: false, reason: "twilio not installed" };
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+      return { sent: false, reason: "Twilio env missing" };
+    }
+
+    const fromWhatsApp = toWhatsAppAddress(process.env.TWILIO_WHATSAPP_FROM);
+    if (!fromWhatsApp) {
+      return { sent: false, reason: "TWILIO_WHATSAPP_FROM missing" };
+    }
+
+    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    await client.messages.create({
+      from: fromWhatsApp,
+      to: toWhatsAppAddress(toPhone),
+      body:
+        `Raahi SOS: ${passengerName || "Your ward"} requested help at ${time}. ` +
+        `Live location: ${locationLink}`
+    });
+
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, reason: err.message };
+  }
+}
+
 // POST /api/sos
 router.post("/", async (req, res) => {
   try {
@@ -110,7 +147,10 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ success: false, error: "Valid latitude and longitude are required" });
     }
 
-    const passenger = await Passenger.findById(passengerId).populate("gaurdian");
+    const passenger = await Passenger.findOne({
+      _id: passengerId,
+      organizationId: req.organizationId
+    }).populate("gaurdian");
     if (!passenger) {
       return res.status(404).json({ success: false, error: "Passenger not found" });
     }
@@ -124,6 +164,7 @@ router.post("/", async (req, res) => {
     }
 
     const sos = new SOS({
+      organizationId: req.organizationId,
       passengerId,
       busId: finalBusId,
       latitude,
@@ -155,12 +196,26 @@ router.post("/", async (req, res) => {
         })
       : { sent: false, reason: "sms disabled" };
 
+    const whatsappEnabled = String(process.env.ENABLE_WHATSAPP || "false") === "true";
+    const whatsappResult = whatsappEnabled
+      ? await sendGuardianWhatsApp({
+          toPhone: guardian.phone,
+          guardianName: guardian.name,
+          passengerName: passenger.name,
+          locationLink,
+          time: messageTime
+        })
+      : { sent: false, reason: "whatsapp disabled" };
+
+    const notificationSent = Boolean(emailResult.sent || smsResult.sent || whatsappResult.sent);
+
     return res.status(200).json({
-      success: emailResult.sent,
+      success: notificationSent,
       locationLink,
       notification: {
         email: emailResult,
-        sms: smsResult
+        sms: smsResult,
+        whatsapp: whatsappResult
       }
     });
   } catch (err) {
@@ -176,7 +231,7 @@ router.get("/", async (req, res) => {
     const range = String(req.query.range || "24h");
     const fromDate = getRangeStartDate(range);
 
-    const alerts = await SOS.find()
+    const alerts = await SOS.find({ organizationId: req.organizationId })
       .where("triggeredAt").gte(fromDate)
       .sort({ triggeredAt: -1, time: -1 })
       .populate({

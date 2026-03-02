@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
 const passengerSchema=new mongoose.Schema({
+organizationId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Organization",
+    index:true
+},
 name:{
     type:String,
     required:true
@@ -30,4 +35,5 @@ status:{
     default:"active"
 }
 });
+passengerSchema.index({ organizationId: 1, rollNo: 1 }, { unique: true });
 module.exports=mongoose.model("Passenger",passengerSchema)

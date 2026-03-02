@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const sosSchema = new mongoose.Schema({
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Organization",
+    index: true
+  },
   passengerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Passenger",

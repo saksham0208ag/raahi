@@ -4,10 +4,14 @@ const Passenger=require("../models/Passenger");
 const Gaurdian=require("../models/Gaurdian");
 const Bus=require("../models/Bus");
 const Route=require("../models/Route");
+const { requireOrganization } = require("../middleware/organizationContext");
+const { checkPlanLimit } = require("../utils/planGuard");
+
+router.use(requireOrganization);
 
 const escapeRegex=(value)=>String(value).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
 
-const findRouteAndBusByStop=async(stopName)=>{
+const findRouteAndBusByStop=async(stopName, organizationId)=>{
     const normalizedStop=String(stopName || "").trim();
     if(!normalizedStop){
         return null;
@@ -15,6 +19,7 @@ const findRouteAndBusByStop=async(stopName)=>{
 
     const stopRegex=`${escapeRegex(normalizedStop)}`;
     const route=await Route.findOne({
+        organizationId,
         $or:[
             {
                 stops:{
@@ -44,9 +49,10 @@ const findRouteAndBusByStop=async(stopName)=>{
     }
 
     const bus=await Bus.findOne({
+        organizationId,
         route:route._id,
         status:{$in:["running","active"]}
-    }) || await Bus.findOne({route:route._id});
+    }) || await Bus.findOne({organizationId, route:route._id});
 
     if(!bus){
         return {route,bus:null,reason:"BUS_NOT_FOUND"};
@@ -57,19 +63,30 @@ const findRouteAndBusByStop=async(stopName)=>{
 
 /* ALL PASSENGERS */
 router.get("/",async(req,res)=>{
-    const passengers=await Passenger.find().populate("gaurdian bus route");
+    const passengers=await Passenger.find({
+        organizationId:req.organizationId
+    }).populate("gaurdian bus route");
     res.json(passengers);
 });
 
 /* ADD PASSENGER */
 router.post("/",async(req,res)=>{
     try{
+        const limitCheck = await checkPlanLimit({
+            organizationId: req.organizationId,
+            plan: req.organization?.plan,
+            resource: "passengers"
+        });
+        if (!limitCheck.allowed) {
+            return res.status(403).json({ error: limitCheck.reason, code: "PLAN_LIMIT_REACHED" });
+        }
+
         const stopName=String(req.body.stopName || "").trim();
         if(!stopName){
             return res.status(400).json({error:"Stop name is required"});
         }
 
-        const routeAndBus=await findRouteAndBusByStop(stopName);
+        const routeAndBus=await findRouteAndBusByStop(stopName, req.organizationId);
         if(!routeAndBus || routeAndBus.reason==="ROUTE_NOT_FOUND"){
             return res.status(400).json({error:"No route found for this stop name"});
         }
@@ -86,6 +103,7 @@ router.post("/",async(req,res)=>{
         }
 
         const gaurdian=await Gaurdian.create({
+            organizationId:req.organizationId,
             name:gaurdianName,
             phone:String(gaurdianPhone),
             email:String(gaurdianEmail).toLowerCase()
@@ -94,6 +112,7 @@ router.post("/",async(req,res)=>{
         const payload={
             ...req.body,
             rollNo:req.body.rollNo || req.body.rollno || req.body.roll_no || req.body.rollNumber,
+            organizationId:req.organizationId,
             stopName,
             bus:routeAndBus.bus._id,
             route:routeAndBus.route._id,
@@ -115,7 +134,10 @@ router.post("/",async(req,res)=>{
 /* UPDATE PASSENGER */
 router.put("/:id",async(req,res)=>{
     try{
-        const passenger=await Passenger.findById(req.params.id);
+        const passenger=await Passenger.findOne({
+            _id:req.params.id,
+            organizationId:req.organizationId
+        });
         if(!passenger){
             return res.status(404).json({error:"Passenger not found"});
         }
@@ -141,6 +163,7 @@ router.put("/:id",async(req,res)=>{
                 );
             }else{
                 const gaurdian=await Gaurdian.create({
+                    organizationId:req.organizationId,
                     name:gaurdianName,
                     phone:String(gaurdianPhone),
                     email:String(gaurdianEmail).toLowerCase()
@@ -157,7 +180,7 @@ router.put("/:id",async(req,res)=>{
 
         const stopName=String(req.body.stopName || "").trim();
         if(stopName){
-            const routeAndBus=await findRouteAndBusByStop(stopName);
+            const routeAndBus=await findRouteAndBusByStop(stopName, req.organizationId);
             if(!routeAndBus || routeAndBus.reason==="ROUTE_NOT_FOUND"){
                 return res.status(400).json({error:"No route found for this stop name"});
             }
@@ -180,8 +203,8 @@ router.put("/:id",async(req,res)=>{
         delete payload.busId;
         delete payload.busNumber;
 
-        const updated=await Passenger.findByIdAndUpdate(
-            req.params.id,
+        const updated=await Passenger.findOneAndUpdate(
+            {_id:req.params.id, organizationId:req.organizationId},
             payload,
             {new:true,runValidators:true}
         ).populate("gaurdian bus route");
@@ -194,7 +217,10 @@ router.put("/:id",async(req,res)=>{
 /* DELETE PASSENGER */
 router.delete("/:id",async(req,res)=>{
     try{
-        const deletedPassenger=await Passenger.findByIdAndDelete(req.params.id);
+        const deletedPassenger=await Passenger.findOneAndDelete({
+            _id:req.params.id,
+            organizationId:req.organizationId
+        });
         if(deletedPassenger?.gaurdian){
             await Gaurdian.findByIdAndDelete(deletedPassenger.gaurdian);
         }

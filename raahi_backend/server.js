@@ -6,7 +6,11 @@ const busRoutes=require("./routes/busRoutes")
 const sosRoutes=require("./routes/sosRoutes");
 const locationRoutes=require("./routes/locationRoutes");
 const routeRoutes=require("./routes/routeRoutes");
+const reportRoutes=require("./routes/reportRoutes");
+const driverRoutes=require("./routes/driverRoutes");
 const authRoutes=require("./routes/auth");
+const organizationRoutes=require("./routes/organizationRoutes");
+const { organizationContext } = require("./middleware/organizationContext");
 const app = express();
 const cors=require('cors');
 const passengerRoutes=require("./routes/passengerRoutes")
@@ -17,13 +21,17 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+app.use(organizationContext);
 
 
 
+app.use("/api/organizations",organizationRoutes);
 app.use("/api/buses",busRoutes)
 app.use('/api/sos',sosRoutes);
 app.use("/api/location",locationRoutes);
 app.use("/api/routes",routeRoutes);
+app.use("/api/reports",reportRoutes);
+app.use("/api/drivers",driverRoutes);
 app.use('/api/auth',authRoutes);
 app.use("/api/passengers",passengerRoutes);
 connectDB();

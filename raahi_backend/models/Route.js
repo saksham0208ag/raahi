@@ -1,5 +1,10 @@
 const mongoose=require('mongoose');
 const routeSchema=new mongoose.Schema({
+    organizationId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Organization",
+        index:true
+    },
     routeName:{
         type:String,
         required:true
@@ -16,4 +21,5 @@ const routeSchema=new mongoose.Schema({
         type:String
     }]
 });
+routeSchema.index({ organizationId: 1, routeName: 1 }, { unique: true });
 module.exports=mongoose.model("Route",routeSchema)

@@ -1,5 +1,10 @@
-const Sidebar = ({ activeTab, onTabChange, sosNotificationCount = 0 }) => {
-  const tabs = ["Students", "SOS Alerts", "Analytics", "Buses", "Routes", "Logout"];
+const Sidebar = ({
+  activeTab,
+  onTabChange,
+  sosNotificationCount = 0,
+  reportedNotificationCount = 0
+}) => {
+  const tabs = ["Students", "SOS Alerts", "Reported", "Analytics", "Buses", "Routes", "Drivers", "Logout"];
 
   return (
     <div className="sidebar">
@@ -15,6 +20,12 @@ const Sidebar = ({ activeTab, onTabChange, sosNotificationCount = 0 }) => {
             {tab === "SOS Alerts" && sosNotificationCount > 0 && (
               <span className="sidebar_alert_wrap">
                 <span className="sidebar_badge">{sosNotificationCount}</span>
+                <span className="sidebar_dot" />
+              </span>
+            )}
+            {tab === "Reported" && reportedNotificationCount > 0 && (
+              <span className="sidebar_alert_wrap">
+                <span className="sidebar_badge">{reportedNotificationCount}</span>
                 <span className="sidebar_dot" />
               </span>
             )}

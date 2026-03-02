@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const LocationLog = require("../models/LocationLog");
+const Bus = require("../models/Bus");
+const { requireOrganization } = require("../middleware/organizationContext");
+
+router.use(requireOrganization);
 
 // UPDATE BUS LOCATION (GPS HEARTBEAT)
 router.post("/update", async (req, res) => {
@@ -13,8 +17,13 @@ router.post("/update", async (req, res) => {
     if (!busId || !latitude || !longitude) {
       return res.status(400).json({ message: "Missing required fields" });
     }
+    const bus = await Bus.findOne({ _id: busId, organizationId: req.organizationId });
+    if (!bus) {
+      return res.status(404).json({ message: "Bus not found for this organization" });
+    }
 
     const location = new LocationLog({
+      organizationId: req.organizationId,
       bus: busId,
       latitude,
       longitude
@@ -35,7 +44,7 @@ router.get("/live/:busId", async (req, res) => {
     const { busId } = req.params;
 
     const latestLocation = await LocationLog
-      .findOne({ bus: busId })
+      .findOne({ bus: busId, organizationId: req.organizationId })
       .sort({ timestamp: -1 });
 
     if (!latestLocation) {

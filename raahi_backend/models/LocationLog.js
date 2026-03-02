@@ -1,5 +1,10 @@
 const mongoose=require("mongoose")
 const locationLogSchema=new mongoose.Schema({
+    organizationId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Organization",
+        index:true
+    },
     bus:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"Bus",

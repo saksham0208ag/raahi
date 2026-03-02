@@ -1,10 +1,23 @@
 const express = require("express");
 const router = express.Router();
 const Bus = require("../models/Bus");
+const { requireOrganization } = require("../middleware/organizationContext");
+const { checkPlanLimit } = require("../utils/planGuard");
+
+router.use(requireOrganization);
 
 // 🔹 ADD A NEW BUS (City or Institution)
 router.post("/add", async (req, res) => {
   try {
+    const limitCheck = await checkPlanLimit({
+      organizationId: req.organizationId,
+      plan: req.organization?.plan,
+      resource: "buses"
+    });
+    if (!limitCheck.allowed) {
+      return res.status(403).json({ error: limitCheck.reason, code: "PLAN_LIMIT_REACHED" });
+    }
+
     const {
       busNumber,
       capacity,
@@ -15,6 +28,7 @@ router.post("/add", async (req, res) => {
     } = req.body;
 
     const bus = new Bus({
+      organizationId: req.organizationId,
       busNumber,
       capacity,
       type,        
@@ -38,7 +52,7 @@ router.post("/add", async (req, res) => {
 //  GET ALL BUSES (ADMIN / TESTING)
 router.get("/", async (req, res) => {
   try {
-    const buses = await Bus.find().populate("route");
+    const buses = await Bus.find({ organizationId: req.organizationId }).populate("route driver");
     res.json(buses);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -49,9 +63,10 @@ router.get("/", async (req, res) => {
 router.get("/institution/:name", async (req, res) => {
   try {
     const buses = await Bus.find({
+      organizationId: req.organizationId,
       type: "INSTITUTION",
       institutionName: req.params.name
-    }).populate("route");
+    }).populate("route driver");
 
     res.json(buses);
   } catch (error) {
@@ -63,8 +78,9 @@ router.get("/institution/:name", async (req, res) => {
 router.get("/city/:city", async (req, res) => {
   try {
     const buses = await Bus.find({
+      organizationId: req.organizationId,
       type: "CITY"
-    }).populate("route");
+    }).populate("route driver");
 
     res.json(buses);
   } catch (error) {
@@ -77,11 +93,11 @@ router.put("/assign-route", async (req, res) => {
   try {
     const { busId, routeId } = req.body;
 
-    const bus = await Bus.findByIdAndUpdate(
-      busId,
+    const bus = await Bus.findOneAndUpdate(
+      { _id: busId, organizationId: req.organizationId },
       { route: routeId },
       { new: true }
-    ).populate("route");
+    ).populate("route driver");
 
     if (!bus) {
       return res.status(404).json({ message: "Bus not found" });

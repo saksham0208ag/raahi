@@ -29,6 +29,8 @@
   justify-content: center;
   padding: 20px;
   background: linear-gradient(135deg, var(--entry-bg-start), var(--entry-bg-end));
+  position: relative;
+  overflow: hidden;
 }
 
 .entry_card {
@@ -118,4 +120,41 @@
   top: auto;
   bottom: 16px;
   right: 16px;
+}
+
+.entry_ticker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.92);
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  display: flex;
+  align-items: center;
+}
+
+.entry_ticker_text {
+  color: #f8fafc;
+  white-space: nowrap;
+  padding-left: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  animation: entryTickerRun 30s linear infinite;
+}
+
+@keyframes entryTickerRun {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-220%);
+  }
+}
+
+[data-theme="dark"] .entry_ticker {
+  background: rgba(2, 6, 23, 0.95);
+  border-top-color: rgba(71, 85, 105, 0.6);
 }
