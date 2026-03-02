@@ -114,12 +114,9 @@ const BusTracking = ({ passengerId, passengerProfile, theme = "light" }) => {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const tileLayerRef = useRef(null);
-  const routeLineCasingRef = useRef(null);
-  const routeLineMainRef = useRef(null);
-  const routeActiveCasingRef = useRef(null);
-  const routeActiveMainRef = useRef(null);
   const stopMarkersRef = useRef([]);
   const previousLocationRef = useRef(null);
+  const speedSamplesRef = useRef([]);
   const initialCenterRef = useRef({ lat: 26.9124, lng: 75.7873 });
 
   const [location, setLocation] = useState({
@@ -285,6 +282,11 @@ const BusTracking = ({ passengerId, passengerProfile, theme = "light" }) => {
       const bearing = getBearing(previous.latitude, previous.longitude, location.latitude, location.longitude);
       setHeading(bearing);
       setBusSpeed(Number.isFinite(speedKmh) ? speedKmh : 0);
+
+      // Keep a short rolling speed window to smooth ETA fluctuations.
+      if (Number.isFinite(speedKmh) && speedKmh > 1 && speedKmh < 120) {
+        speedSamplesRef.current = [...speedSamplesRef.current.slice(-5), speedKmh];
+      }
     }
 
     previousLocationRef.current = {
@@ -326,11 +328,15 @@ const BusTracking = ({ passengerId, passengerProfile, theme = "light" }) => {
   const busKm = getKmAtProgress(tripProgress, cumulativeRouteKm);
   const stopKm = getKmAtProgress(studentStopIndex / maxRouteIndex, cumulativeRouteKm);
   const remainingKmToStop = Math.max(0, stopKm - busKm);
-  const effectiveSpeed = busSpeed > 6 ? busSpeed : 18;
+  const avgSpeedFromSamples =
+    speedSamplesRef.current.length > 0
+      ? speedSamplesRef.current.reduce((a, b) => a + b, 0) / speedSamplesRef.current.length
+      : 0;
+  const effectiveSpeed = avgSpeedFromSamples > 6 ? avgSpeedFromSamples : busSpeed > 6 ? busSpeed : 18;
   const etaMinutes =
     remainingKmToStop <= 0.05
       ? 0
-      : Math.max(1, Math.round((remainingKmToStop / Math.max(8, effectiveSpeed)) * 60));
+      : Math.max(1, Math.round((remainingKmToStop / Math.max(10, effectiveSpeed)) * 60));
   const secondsSinceLastGps = Math.floor((clock.getTime() - new Date(location.updatedAt).getTime()) / 1000);
   const tripStarted = !loading && secondsSinceLastGps <= 120;
   const arrivalClock = new Date(clock.getTime() + etaMinutes * 60 * 1000);
@@ -341,44 +347,8 @@ const BusTracking = ({ passengerId, passengerProfile, theme = "light" }) => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    if (routeLineCasingRef.current) mapRef.current.removeLayer(routeLineCasingRef.current);
-    if (routeLineMainRef.current) mapRef.current.removeLayer(routeLineMainRef.current);
-    if (routeActiveCasingRef.current) mapRef.current.removeLayer(routeActiveCasingRef.current);
-    if (routeActiveMainRef.current) mapRef.current.removeLayer(routeActiveMainRef.current);
     stopMarkersRef.current.forEach((marker) => mapRef.current.removeLayer(marker));
     stopMarkersRef.current = [];
-
-    routeLineCasingRef.current = L.polyline(routeCoordinates, {
-      color: "#ffffff",
-      weight: 10,
-      opacity: 0.95,
-      lineCap: "round",
-      lineJoin: "round"
-    }).addTo(mapRef.current);
-
-    routeLineMainRef.current = L.polyline(routeCoordinates, {
-      color: "#93c5fd",
-      weight: 5,
-      opacity: 0.8,
-      lineCap: "round",
-      lineJoin: "round"
-    }).addTo(mapRef.current);
-
-    routeActiveCasingRef.current = L.polyline(activeRouteCoordinates, {
-      color: "#ffffff",
-      weight: 10,
-      opacity: 0.95,
-      lineCap: "round",
-      lineJoin: "round"
-    }).addTo(mapRef.current);
-
-    routeActiveMainRef.current = L.polyline(activeRouteCoordinates, {
-      color: "#1a73e8",
-      weight: 6,
-      opacity: 0.98,
-      lineCap: "round",
-      lineJoin: "round"
-    }).addTo(mapRef.current);
 
     stopNames.forEach((stop, index) => {
       const marker = L.circleMarker(routeCoordinates[index], {
