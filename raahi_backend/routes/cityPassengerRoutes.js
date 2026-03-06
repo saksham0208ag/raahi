@@ -207,9 +207,9 @@ const toPassengerDetails = (passenger) => ({
 
 router.get("/stops/suggest", async (req, res) => {
   try {
-    const stopName = String(req.query.stopName || "").trim();
+    const stopName = String(req.query.pickupStop || req.query.stopName || "").trim();
     if (!stopName) {
-      return res.status(400).json({ error: "stopName is required" });
+      return res.status(400).json({ error: "pickupStop is required" });
     }
     const result = await findBestBusForStop({ organizationId: req.organizationId, stopName });
     if (!result.found) {
@@ -220,7 +220,7 @@ router.get("/stops/suggest", async (req, res) => {
       });
     }
     res.json({
-      requestedStop: stopName,
+      requestedPickupStop: stopName,
       selectedStopName: result.selectedStopName,
       matchType: result.matchType,
       confidenceScore: result.score || 1,
@@ -262,7 +262,7 @@ router.post("/auth/register-or-login", async (req, res) => {
         return res.status(404).json({ error: "Passenger profile not found for this account" });
       }
 
-      const stopName = String(req.body.stopName || "").trim();
+      const stopName = String(req.body.pickupStop || req.body.stopName || "").trim();
       let routeResult = null;
 
       if (stopName) {
@@ -306,7 +306,7 @@ router.post("/auth/register-or-login", async (req, res) => {
     }
 
     const name = String(req.body.name || "").trim();
-    const stopName = String(req.body.stopName || "").trim();
+    const stopName = String(req.body.pickupStop || req.body.stopName || "").trim();
     const gaurdianName = String(req.body.gaurdianName || "").trim();
     const gaurdianPhone = String(req.body.gaurdianPhone || "").trim();
     const gaurdianEmailRaw = String(req.body.gaurdianEmail || "").trim().toLowerCase();
@@ -315,7 +315,7 @@ router.post("/auth/register-or-login", async (req, res) => {
 
     if (!name || !stopName || !gaurdianName || !gaurdianPhone) {
       return res.status(400).json({
-        error: "name, stopName, gaurdianName and gaurdianPhone are required for new city passengers"
+        error: "name, pickupStop, gaurdianName and gaurdianPhone are required for new city passengers"
       });
     }
 

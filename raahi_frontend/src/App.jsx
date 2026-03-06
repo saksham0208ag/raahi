@@ -7,6 +7,7 @@ import DriverTracking from "./pages/DriverTracking";
 import "./App.css";
 
 function App() {
+  const defaultCityOrganizationCode = (import.meta.env.VITE_CITY_ORGANIZATION_CODE || "").trim().toLowerCase();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [userType, setUserType] = useState("organisation");
   const [orgRole, setOrgRole] = useState("admin");
@@ -68,6 +69,60 @@ function App() {
   };
 
   const handleContinue = async () => {
+    if (userType === "city") {
+      const cityOrganizationCode = defaultCityOrganizationCode || organizationCodeInput.trim().toLowerCase();
+      if (!cityOrganizationCode) {
+        alert("City organization code is not configured. Set VITE_CITY_ORGANIZATION_CODE.");
+        return;
+      }
+
+      delete axios.defaults.headers.common["x-super-admin-key"];
+      axios.defaults.headers.common["x-organization-code"] = cityOrganizationCode;
+
+      if (!cityPhoneInput.trim() || !cityPinInput.trim()) {
+        alert("Phone and PIN are required.");
+        return;
+      }
+      if (!cityStopInput.trim()) {
+        alert("Pickup stop is required.");
+        return;
+      }
+
+      try {
+        const res = await axios.post("/api/city/auth/register-or-login", {
+          phone: cityPhoneInput.trim(),
+          pin: cityPinInput.trim(),
+          pickupStop: cityStopInput.trim(),
+          name: cityNameInput.trim(),
+          gaurdianName: cityGuardianNameInput.trim(),
+          gaurdianPhone: cityGuardianPhoneInput.trim(),
+          gaurdianEmail: cityGuardianEmailInput.trim(),
+          gaurdianRelation: cityGuardianRelationInput.trim()
+        });
+
+        const loggedInPassengerId = res.data?.passengerId;
+        const directProfile = res.data?.passengerDetails || null;
+
+        if (!loggedInPassengerId || !directProfile) {
+          alert("City login failed. Missing passenger profile.");
+          return;
+        }
+
+        setPassengerId(loggedInPassengerId);
+        setPassengerProfile(normalizePassengerProfile(directProfile));
+        setCitySuggestions([]);
+        if (res.data?.matchType === "nearest" && res.data?.selectedStopName) {
+          alert(`No direct bus for your pickup. Assigned nearest stop: ${res.data.selectedStopName}`);
+        }
+        setView("tracking");
+      } catch (error) {
+        const suggestions = error?.response?.data?.suggestions || [];
+        setCitySuggestions(suggestions);
+        alert(error?.response?.data?.error || "City passenger login/create failed");
+      }
+      return;
+    }
+
     if (userType === "super_admin") {
       const superAdminKey = superAdminKeyInput.trim();
       if (!superAdminKey) {
@@ -128,51 +183,6 @@ function App() {
         setView("driver");
       } catch (error) {
         alert(error?.response?.data?.message || error?.response?.data?.error || "Driver login failed");
-      }
-      return;
-    }
-
-    if (userType === "city") {
-      if (!cityPhoneInput.trim() || !cityPinInput.trim()) {
-        alert("Phone and PIN are required.");
-        return;
-      }
-      if (!cityStopInput.trim()) {
-        alert("Pickup stop is required.");
-        return;
-      }
-
-      try {
-        const res = await axios.post("/api/city/auth/register-or-login", {
-          phone: cityPhoneInput.trim(),
-          pin: cityPinInput.trim(),
-          stopName: cityStopInput.trim(),
-          name: cityNameInput.trim(),
-          gaurdianName: cityGuardianNameInput.trim(),
-          gaurdianPhone: cityGuardianPhoneInput.trim(),
-          gaurdianEmail: cityGuardianEmailInput.trim(),
-          gaurdianRelation: cityGuardianRelationInput.trim()
-        });
-
-        const loggedInPassengerId = res.data?.passengerId;
-        const directProfile = res.data?.passengerDetails || null;
-
-        if (!loggedInPassengerId || !directProfile) {
-          alert("City login failed. Missing passenger profile.");
-          return;
-        }
-
-        setPassengerId(loggedInPassengerId);
-        setPassengerProfile(normalizePassengerProfile(directProfile));
-        setCitySuggestions([]);
-        if (res.data?.matchType === "nearest" && res.data?.selectedStopName) {
-          alert(`No direct bus for your stop. Assigned nearest stop: ${res.data.selectedStopName}`);
-        }
-        setView("tracking");
-      } catch (error) {
-        const suggestions = error?.response?.data?.suggestions || [];
-        setCitySuggestions(suggestions);
-        alert(error?.response?.data?.error || "City passenger login/create failed");
       }
       return;
     }
@@ -323,13 +333,6 @@ function App() {
 
         {userType === "city" && (
           <>
-            <label className="entry_label">Organization Code</label>
-            <input
-              className="entry_input"
-              value={organizationCodeInput}
-              onChange={(e) => setOrganizationCodeInput(e.target.value)}
-              placeholder="Enter organization code"
-            />
             <label className="entry_label">Name</label>
             <input
               className="entry_input"
@@ -357,7 +360,7 @@ function App() {
               className="entry_input"
               value={cityStopInput}
               onChange={(e) => setCityStopInput(e.target.value)}
-              placeholder="Enter desired pickup stop"
+              placeholder="Enter pickup stop (can change every login)"
             />
             <label className="entry_label">Guardian Name</label>
             <input
