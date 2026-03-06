@@ -10,6 +10,7 @@ const reportRoutes=require("./routes/reportRoutes");
 const driverRoutes=require("./routes/driverRoutes");
 const authRoutes=require("./routes/auth");
 const organizationRoutes=require("./routes/organizationRoutes");
+const cityPassengerRoutes=require("./routes/cityPassengerRoutes");
 const { organizationContext } = require("./middleware/organizationContext");
 const app = express();
 const cors=require('cors');
@@ -34,6 +35,7 @@ app.use("/api/reports",reportRoutes);
 app.use("/api/drivers",driverRoutes);
 app.use('/api/auth',authRoutes);
 app.use("/api/passengers",passengerRoutes);
+app.use("/api/city",cityPassengerRoutes);
 connectDB();
 
 

@@ -5,13 +5,26 @@ organizationId:{
     ref:"Organization",
     index:true
 },
+passengerType:{
+    type:String,
+    enum:["student","city"],
+    default:"student",
+    index:true
+},
 name:{
     type:String,
     required:true
 },
 rollNo:{
     type:String,
-    required:true
+    required:function(){
+        return this.passengerType !== "city";
+    },
+    trim:true
+},
+phone:{
+    type:String,
+    trim:true
 },
 stopName:{
     type:String,
@@ -35,5 +48,12 @@ status:{
     default:"active"
 }
 });
-passengerSchema.index({ organizationId: 1, rollNo: 1 }, { unique: true });
+passengerSchema.index(
+    { organizationId: 1, rollNo: 1 },
+    { unique: true, partialFilterExpression: { passengerType: "student", rollNo: { $type: "string" } } }
+);
+passengerSchema.index(
+    { organizationId: 1, phone: 1 },
+    { unique: true, partialFilterExpression: { passengerType: "city", phone: { $type: "string" } } }
+);
 module.exports=mongoose.model("Passenger",passengerSchema)

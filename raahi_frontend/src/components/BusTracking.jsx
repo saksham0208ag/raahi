@@ -242,7 +242,9 @@ const BusTracking = ({ passengerId, passengerProfile, theme = "light" }) => {
     let mounted = true;
     const loadLiveLocation = async () => {
       try {
-        const res = await axios.get(`/api/location/live/${trackedBusId}`);
+        const res = await axios.get(`/api/location/live/${trackedBusId}`, {
+          params: { t: Date.now() }
+        });
         if (!mounted) return;
         const live = res.data || {};
         setLocation({
@@ -403,7 +405,7 @@ const BusTracking = ({ passengerId, passengerProfile, theme = "light" }) => {
   };
 
   const studentName = passengerProfile?.name || "Unknown";
-  const studentRollNo = passengerProfile?.rollNo || "N/A";
+  const studentRollNo = passengerProfile?.rollNo || passengerProfile?.phone || "N/A";
   const studentStop = passengerProfile?.stopName || "N/A";
 
   const handleBoard = () => {

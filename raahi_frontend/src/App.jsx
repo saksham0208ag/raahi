@@ -14,6 +14,15 @@ function App() {
   const [superAdminKeyInput, setSuperAdminKeyInput] = useState("");
   const [driverCodeInput, setDriverCodeInput] = useState("");
   const [passengerIdInput, setPassengerIdInput] = useState("");
+  const [cityNameInput, setCityNameInput] = useState("");
+  const [cityPhoneInput, setCityPhoneInput] = useState("");
+  const [cityPinInput, setCityPinInput] = useState("");
+  const [cityStopInput, setCityStopInput] = useState("");
+  const [cityGuardianNameInput, setCityGuardianNameInput] = useState("");
+  const [cityGuardianPhoneInput, setCityGuardianPhoneInput] = useState("");
+  const [cityGuardianEmailInput, setCityGuardianEmailInput] = useState("");
+  const [cityGuardianRelationInput, setCityGuardianRelationInput] = useState("");
+  const [citySuggestions, setCitySuggestions] = useState([]);
   const [passengerId, setPassengerId] = useState("");
   const [passengerProfile, setPassengerProfile] = useState(null);
   const [driverProfile, setDriverProfile] = useState(null);
@@ -29,6 +38,8 @@ function App() {
     return {
       id: passenger._id || passenger.id || "",
       name: passenger.name || "",
+      passengerType: passenger.passengerType || "student",
+      phone: passenger.phone || "",
       rollNo: passenger.rollNo || "",
       stopName: passenger.stopName || "",
       status: passenger.status || "",
@@ -121,6 +132,51 @@ function App() {
       return;
     }
 
+    if (userType === "city") {
+      if (!cityPhoneInput.trim() || !cityPinInput.trim()) {
+        alert("Phone and PIN are required.");
+        return;
+      }
+      if (!cityStopInput.trim()) {
+        alert("Pickup stop is required.");
+        return;
+      }
+
+      try {
+        const res = await axios.post("/api/city/auth/register-or-login", {
+          phone: cityPhoneInput.trim(),
+          pin: cityPinInput.trim(),
+          stopName: cityStopInput.trim(),
+          name: cityNameInput.trim(),
+          gaurdianName: cityGuardianNameInput.trim(),
+          gaurdianPhone: cityGuardianPhoneInput.trim(),
+          gaurdianEmail: cityGuardianEmailInput.trim(),
+          gaurdianRelation: cityGuardianRelationInput.trim()
+        });
+
+        const loggedInPassengerId = res.data?.passengerId;
+        const directProfile = res.data?.passengerDetails || null;
+
+        if (!loggedInPassengerId || !directProfile) {
+          alert("City login failed. Missing passenger profile.");
+          return;
+        }
+
+        setPassengerId(loggedInPassengerId);
+        setPassengerProfile(normalizePassengerProfile(directProfile));
+        setCitySuggestions([]);
+        if (res.data?.matchType === "nearest" && res.data?.selectedStopName) {
+          alert(`No direct bus for your stop. Assigned nearest stop: ${res.data.selectedStopName}`);
+        }
+        setView("tracking");
+      } catch (error) {
+        const suggestions = error?.response?.data?.suggestions || [];
+        setCitySuggestions(suggestions);
+        alert(error?.response?.data?.error || "City passenger login/create failed");
+      }
+      return;
+    }
+
     if (!passengerIdInput.trim()) {
       alert("Roll Number is required for tracking and SOS.");
       return;
@@ -184,6 +240,7 @@ function App() {
         >
           <option value="organisation">Organisation / College</option>
           <option value="regular">Regular</option>
+          <option value="city">City Passenger</option>
           <option value="driver">Driver</option>
           <option value="super_admin">Super Admin</option>
         </select>
@@ -261,6 +318,92 @@ function App() {
               onChange={(e) => setDriverCodeInput(e.target.value)}
               placeholder="Enter driver login code"
             />
+          </>
+        )}
+
+        {userType === "city" && (
+          <>
+            <label className="entry_label">Organization Code</label>
+            <input
+              className="entry_input"
+              value={organizationCodeInput}
+              onChange={(e) => setOrganizationCodeInput(e.target.value)}
+              placeholder="Enter organization code"
+            />
+            <label className="entry_label">Name</label>
+            <input
+              className="entry_input"
+              value={cityNameInput}
+              onChange={(e) => setCityNameInput(e.target.value)}
+              placeholder="Enter full name"
+            />
+            <label className="entry_label">Phone Number</label>
+            <input
+              className="entry_input"
+              value={cityPhoneInput}
+              onChange={(e) => setCityPhoneInput(e.target.value)}
+              placeholder="Enter phone number"
+            />
+            <label className="entry_label">PIN</label>
+            <input
+              className="entry_input"
+              type="password"
+              value={cityPinInput}
+              onChange={(e) => setCityPinInput(e.target.value)}
+              placeholder="Create PIN or login PIN"
+            />
+            <label className="entry_label">Pickup Stop</label>
+            <input
+              className="entry_input"
+              value={cityStopInput}
+              onChange={(e) => setCityStopInput(e.target.value)}
+              placeholder="Enter desired pickup stop"
+            />
+            <label className="entry_label">Guardian Name</label>
+            <input
+              className="entry_input"
+              value={cityGuardianNameInput}
+              onChange={(e) => setCityGuardianNameInput(e.target.value)}
+              placeholder="Required for first-time account"
+            />
+            <label className="entry_label">Guardian Phone</label>
+            <input
+              className="entry_input"
+              value={cityGuardianPhoneInput}
+              onChange={(e) => setCityGuardianPhoneInput(e.target.value)}
+              placeholder="Required for first-time account"
+            />
+            <label className="entry_label">Guardian Email (optional)</label>
+            <input
+              className="entry_input"
+              value={cityGuardianEmailInput}
+              onChange={(e) => setCityGuardianEmailInput(e.target.value)}
+              placeholder="Optional for first-time account"
+            />
+            <label className="entry_label">Guardian Relation</label>
+            <input
+              className="entry_input"
+              value={cityGuardianRelationInput}
+              onChange={(e) => setCityGuardianRelationInput(e.target.value)}
+              placeholder="Father / Mother / Spouse / Other"
+            />
+            {citySuggestions.length > 0 && (
+              <>
+                <label className="entry_label">Nearest Available Stops</label>
+                <div className="entry_suggestions">
+                  {citySuggestions.map((item, idx) => (
+                    <button
+                      key={`${item.stopName}-${idx}`}
+                      className="entry_suggestion_button"
+                      type="button"
+                      onClick={() => setCityStopInput(item.stopName)}
+                    >
+                      {item.stopName} ({item.busNumber})
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
 
