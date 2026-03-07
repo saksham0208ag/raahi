@@ -11,6 +11,7 @@ const driverRoutes=require("./routes/driverRoutes");
 const authRoutes=require("./routes/auth");
 const organizationRoutes=require("./routes/organizationRoutes");
 const cityPassengerRoutes=require("./routes/cityPassengerRoutes");
+const superAdminStopRoutes=require("./routes/superAdminStopRoutes");
 const { organizationContext } = require("./middleware/organizationContext");
 const app = express();
 const cors=require('cors');
@@ -27,6 +28,7 @@ app.use(organizationContext);
 
 
 app.use("/api/organizations",organizationRoutes);
+app.use("/api/super-admin/stops",superAdminStopRoutes);
 app.use("/api/buses",busRoutes)
 app.use('/api/sos',sosRoutes);
 app.use("/api/location",locationRoutes);

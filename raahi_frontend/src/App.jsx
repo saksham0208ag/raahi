@@ -24,6 +24,7 @@ function App() {
   const [cityFromInput, setCityFromInput] = useState("");
   const [cityToInput, setCityToInput] = useState("");
   const [cityJourneyOptions, setCityJourneyOptions] = useState([]);
+  const [cityNearestStops, setCityNearestStops] = useState([]);
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [passengerId, setPassengerId] = useState("");
   const [passengerProfile, setPassengerProfile] = useState(null);
@@ -421,6 +422,51 @@ function App() {
             onChange={(e) => setCityToInput(e.target.value)}
             placeholder="Enter destination"
           />
+          <button
+            className="entry_button"
+            type="button"
+            onClick={() => {
+              if (!navigator.geolocation) {
+                alert("Geolocation is not supported in this browser.");
+                return;
+              }
+              navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                  try {
+                    const res = await axios.post("/api/city/journey/nearest-stops", {
+                      passengerId,
+                      latitude: position.coords.latitude,
+                      longitude: position.coords.longitude,
+                      limit: 5
+                    });
+                    setCityNearestStops(res.data?.nearestStops || []);
+                  } catch (error) {
+                    setCityNearestStops([]);
+                    alert(error?.response?.data?.error || "Failed to fetch nearest bus stands");
+                  }
+                },
+                () => alert("Location access denied.")
+              );
+            }}
+          >
+            Use My Location for Pickup
+          </button>
+
+          {cityNearestStops.length > 0 && (
+            <div className="entry_suggestions" style={{ marginTop: "10px" }}>
+              {cityNearestStops.map((stop) => (
+                <button
+                  key={stop.id}
+                  className="entry_suggestion_button"
+                  type="button"
+                  onClick={() => setCityFromInput(stop.name)}
+                >
+                  {stop.name} {stop.distanceKm ? `(${stop.distanceKm} km)` : ""}
+                </button>
+              ))}
+            </div>
+          )}
+
           <button
             className="entry_button"
             onClick={async () => {

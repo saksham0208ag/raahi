@@ -3,7 +3,9 @@ import axios from "axios";
 import "./admin.css";
 
 const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
+  const [activeTab, setActiveTab] = useState("Organizations");
   const [organizations, setOrganizations] = useState([]);
+  const [stops, setStops] = useState([]);
   const [planCatalog, setPlanCatalog] = useState({});
   const [planDetails, setPlanDetails] = useState({});
   const [loading, setLoading] = useState(true);
@@ -11,6 +13,12 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [plan, setPlan] = useState("trial");
+  const [stopName, setStopName] = useState("");
+  const [stopCity, setStopCity] = useState("");
+  const [stopAliases, setStopAliases] = useState("");
+  const [stopLatitude, setStopLatitude] = useState("");
+  const [stopLongitude, setStopLongitude] = useState("");
+  const [stopOrgCode, setStopOrgCode] = useState("");
 
   const headers = { "x-super-admin-key": superAdminKey };
 
@@ -28,6 +36,7 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
   useEffect(() => {
     loadOrganizations();
     loadPlans();
+    loadStops();
   }, []);
 
   const loadPlans = async () => {
@@ -75,12 +84,69 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
     }
   };
 
+  const loadStops = async () => {
+    try {
+      const res = await axios.get("/api/super-admin/stops", { headers });
+      setStops(res.data || []);
+    } catch (error) {
+      alert(error?.response?.data?.error || "Failed to load stops");
+    }
+  };
+
+  const createStop = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(
+        "/api/super-admin/stops",
+        {
+          name: stopName.trim(),
+          city: stopCity.trim(),
+          aliases: stopAliases,
+          latitude: Number(stopLatitude),
+          longitude: Number(stopLongitude),
+          organizationCode: stopOrgCode.trim().toLowerCase()
+        },
+        { headers }
+      );
+      setStopName("");
+      setStopCity("");
+      setStopAliases("");
+      setStopLatitude("");
+      setStopLongitude("");
+      setStopOrgCode("");
+      loadStops();
+    } catch (error) {
+      alert(error?.response?.data?.error || "Failed to create stop");
+    }
+  };
+
+  const deleteStop = async (id) => {
+    if (!window.confirm("Delete this stop?")) return;
+    try {
+      await axios.delete(`/api/super-admin/stops/${id}`, { headers });
+      loadStops();
+    } catch (error) {
+      alert(error?.response?.data?.error || "Failed to delete stop");
+    }
+  };
+
   return (
     <div className="admin_layout">
       <div className="sidebar">
         <h3 className="sidebar_h3">Platform Admin</h3>
         <ul className="sidebar_ul">
-          <li className="sidebar_li sidebar_li_active">Organizations</li>
+          <li
+            className={`sidebar_li ${activeTab === "Organizations" ? "sidebar_li_active" : ""}`}
+            onClick={() => setActiveTab("Organizations")}
+          >
+            Organizations
+          </li>
+          <li
+            className={`sidebar_li ${activeTab === "Stops" ? "sidebar_li_active" : ""}`}
+            onClick={() => setActiveTab("Stops")}
+          >
+            Stops
+          </li>
           <li className="sidebar_li" onClick={onLogout}>Logout</li>
         </ul>
       </div>
@@ -88,6 +154,8 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
       <div className="admin_content">
         <h2 className="admin_h2">Super Admin Panel</h2>
 
+        {activeTab === "Organizations" && (
+        <>
         <section className="passenger_management" style={{ marginBottom: "16px" }}>
           <div className="pm_header">
             <h2 className="pm_header_h2">Create Organization</h2>
@@ -220,6 +288,112 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
             </div>
           )}
         </section>
+        </>
+        )}
+
+        {activeTab === "Stops" && (
+          <>
+            <section className="passenger_management" style={{ marginBottom: "16px" }}>
+              <div className="pm_header">
+                <h2 className="pm_header_h2">Create Stop</h2>
+              </div>
+              <form className="route_form" onSubmit={createStop}>
+                <input
+                  className="route_input"
+                  placeholder="Stop name"
+                  value={stopName}
+                  onChange={(e) => setStopName(e.target.value)}
+                  required
+                />
+                <input
+                  className="route_input"
+                  placeholder="City"
+                  value={stopCity}
+                  onChange={(e) => setStopCity(e.target.value)}
+                />
+                <input
+                  className="route_input"
+                  placeholder="Aliases (comma separated)"
+                  value={stopAliases}
+                  onChange={(e) => setStopAliases(e.target.value)}
+                />
+                <input
+                  className="route_input"
+                  placeholder="Latitude"
+                  value={stopLatitude}
+                  onChange={(e) => setStopLatitude(e.target.value)}
+                  required
+                />
+                <input
+                  className="route_input"
+                  placeholder="Longitude"
+                  value={stopLongitude}
+                  onChange={(e) => setStopLongitude(e.target.value)}
+                  required
+                />
+                <input
+                  className="route_input"
+                  placeholder="Organization code (optional)"
+                  value={stopOrgCode}
+                  onChange={(e) => setStopOrgCode(e.target.value)}
+                />
+                <button className="pm_header_button" type="submit">
+                  Create Stop
+                </button>
+              </form>
+            </section>
+
+            <section className="passenger_management">
+              <div className="pm_header">
+                <h2 className="pm_header_h2">All Stops</h2>
+                <button className="pm_header_button" onClick={loadStops}>
+                  Refresh
+                </button>
+              </div>
+
+              <div className="route_table_wrap">
+                <table>
+                  <thead className="thead">
+                    <tr>
+                      <th className="th">Name</th>
+                      <th className="th">City</th>
+                      <th className="th">Organization</th>
+                      <th className="th">Latitude</th>
+                      <th className="th">Longitude</th>
+                      <th className="th">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stops.length === 0 ? (
+                      <tr>
+                        <td className="td" colSpan="6">No stops found</td>
+                      </tr>
+                    ) : (
+                      stops.map((stop) => (
+                        <tr key={stop._id}>
+                          <td className="td">{stop.name}</td>
+                          <td className="td">{stop.city || "-"}</td>
+                          <td className="td">{stop.organizationId?.code || "global"}</td>
+                          <td className="td">{stop.location?.coordinates?.[1] ?? "-"}</td>
+                          <td className="td">{stop.location?.coordinates?.[0] ?? "-"}</td>
+                          <td className="td">
+                            <button
+                              className="pm_header_button"
+                              type="button"
+                              onClick={() => deleteStop(stop._id)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ const Passenger = require("../models/Passenger");
 const Gaurdian = require("../models/Gaurdian");
 const Route = require("../models/Route");
 const Bus = require("../models/Bus");
+const Stop = require("../models/Stop");
 const CityPassengerAccount = require("../models/CityPassengerAccount");
 
 const router = express.Router();
@@ -84,6 +85,28 @@ const scoreStopName = (inputStop, candidateStop) => {
 
 const withOrgScope = (organizationId, query = {}) =>
   organizationId ? { ...query, organizationId } : query;
+
+const hasActiveBusForStop = async ({ organizationId, stopName }) => {
+  const normalizedStop = normalizeText(stopName);
+  if (!normalizedStop) return false;
+
+  const routes = await Route.find(withOrgScope(organizationId)).lean();
+  const buses = await Bus.find({
+    ...withOrgScope(organizationId),
+    route: { $exists: true, $ne: null },
+    status: { $in: ["running", "active"] }
+  })
+    .select("route")
+    .lean();
+
+  const activeRouteIds = new Set(buses.map((b) => String(b.route)).filter(Boolean));
+  if (!activeRouteIds.size) return false;
+
+  return routes.some((route) => {
+    if (!activeRouteIds.has(String(route._id))) return false;
+    return extractRouteStops(route).some((s) => normalizeText(s) === normalizedStop);
+  });
+};
 
 const findBestBusForStop = async ({ organizationId, stopName }) => {
   const routes = await Route.find(withOrgScope(organizationId)).lean();
@@ -438,6 +461,77 @@ router.post("/journey/search", async (req, res) => {
     }
 
     return res.json({ options });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+router.post("/journey/nearest-stops", async (req, res) => {
+  try {
+    const lat = Number(req.body.latitude);
+    const lng = Number(req.body.longitude);
+    const limit = Math.min(10, Math.max(1, Number(req.body.limit || 5)));
+    const maxDistanceKm = Math.min(20, Math.max(1, Number(req.body.maxDistanceKm || 5)));
+    const passengerId = String(req.body.passengerId || "").trim();
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ error: "Valid latitude and longitude are required" });
+    }
+
+    let organizationId = null;
+    if (passengerId) {
+      const passenger = await Passenger.findById(passengerId).select("organizationId passengerType");
+      if (passenger && passenger.passengerType === "city") {
+        organizationId = passenger.organizationId || null;
+      }
+    }
+
+    const candidates = await Stop.find({
+      ...withOrgScope(organizationId),
+      isActive: true,
+      location: {
+        $near: {
+          $geometry: { type: "Point", coordinates: [lng, lat] },
+          $maxDistance: Math.round(maxDistanceKm * 1000)
+        }
+      }
+    }).limit(30);
+
+    const nearestStops = [];
+    for (const stop of candidates) {
+      const served = await hasActiveBusForStop({
+        organizationId: stop.organizationId || organizationId || null,
+        stopName: stop.name
+      });
+      if (!served) continue;
+      const stopLat = Number(stop.location?.coordinates?.[1]);
+      const stopLng = Number(stop.location?.coordinates?.[0]);
+      const approxDistanceKm =
+        Number.isFinite(stopLat) && Number.isFinite(stopLng)
+          ? Number(
+              (
+                Math.acos(
+                  Math.sin((lat * Math.PI) / 180) * Math.sin((stopLat * Math.PI) / 180) +
+                    Math.cos((lat * Math.PI) / 180) *
+                      Math.cos((stopLat * Math.PI) / 180) *
+                      Math.cos(((stopLng - lng) * Math.PI) / 180)
+                ) * 6371
+              ).toFixed(2)
+            )
+          : null;
+
+      nearestStops.push({
+        id: stop._id,
+        name: stop.name,
+        city: stop.city || "",
+        latitude: stopLat,
+        longitude: stopLng,
+        distanceKm: approxDistanceKm
+      });
+      if (nearestStops.length >= limit) break;
+    }
+
+    return res.json({ nearestStops });
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
