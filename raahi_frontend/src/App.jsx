@@ -14,7 +14,8 @@ function App() {
   const [superAdminKeyInput, setSuperAdminKeyInput] = useState("");
   const [driverCodeInput, setDriverCodeInput] = useState("");
   const [passengerIdInput, setPassengerIdInput] = useState("");
-  const [cityAccessRole, setCityAccessRole] = useState("user");
+  const [cityAccessRole, setCityAccessRole] = useState("passenger");
+  const [cityPassengerAction, setCityPassengerAction] = useState("login");
   const [cityNameInput, setCityNameInput] = useState("");
   const [cityPhoneInput, setCityPhoneInput] = useState("");
   const [cityPinInput, setCityPinInput] = useState("");
@@ -26,7 +27,6 @@ function App() {
   const [cityToInput, setCityToInput] = useState("");
   const [cityJourneyOptions, setCityJourneyOptions] = useState([]);
   const [cityNearestStops, setCityNearestStops] = useState([]);
-  const [citySuggestions, setCitySuggestions] = useState([]);
   const [passengerId, setPassengerId] = useState("");
   const [passengerProfile, setPassengerProfile] = useState(null);
   const [driverProfile, setDriverProfile] = useState(null);
@@ -103,15 +103,34 @@ function App() {
         return;
       }
       try {
-        const res = await axios.post("/api/city/auth/register-or-login", {
+        const cityAuthPayload = {
           phone: cityPhoneInput.trim(),
-          pin: cityPinInput.trim(),
-          name: cityNameInput.trim(),
-          gaurdianName: cityGuardianNameInput.trim(),
-          gaurdianPhone: cityGuardianPhoneInput.trim(),
-          gaurdianEmail: cityGuardianEmailInput.trim(),
-          gaurdianRelation: cityGuardianRelationInput.trim()
-        });
+          pin: cityPinInput.trim()
+        };
+
+        if (cityPassengerAction === "create") {
+          if (!cityNameInput.trim() || !cityGuardianNameInput.trim() || !cityGuardianPhoneInput.trim()) {
+            alert("Name, guardian name and guardian phone are required to create account.");
+            return;
+          }
+          cityAuthPayload.name = cityNameInput.trim();
+          cityAuthPayload.gaurdianName = cityGuardianNameInput.trim();
+          cityAuthPayload.gaurdianPhone = cityGuardianPhoneInput.trim();
+          cityAuthPayload.gaurdianEmail = cityGuardianEmailInput.trim();
+          cityAuthPayload.gaurdianRelation = cityGuardianRelationInput.trim();
+        }
+
+        const res = await axios.post("/api/city/auth/register-or-login", cityAuthPayload);
+
+        if (cityPassengerAction === "login" && res.data?.created === true) {
+          alert("Account not found. Please choose Create Account.");
+          return;
+        }
+
+        if (cityPassengerAction === "create" && res.data?.created === false) {
+          alert("Account already exists. Please choose Login.");
+          return;
+        }
 
         const loggedInPassengerId = res.data?.passengerId;
         const directProfile = res.data?.passengerDetails || null;
@@ -123,12 +142,13 @@ function App() {
 
         setPassengerId(loggedInPassengerId);
         setPassengerProfile(normalizePassengerProfile(directProfile));
-        setCitySuggestions([]);
         setView("city_journey");
       } catch (error) {
-        const suggestions = error?.response?.data?.suggestions || [];
-        setCitySuggestions(suggestions);
-        alert(error?.response?.data?.error || "City passenger login/create failed");
+        if (cityPassengerAction === "login") {
+          alert(error?.response?.data?.error || "Login failed. If account does not exist, create one.");
+        } else {
+          alert(error?.response?.data?.error || "Create account failed");
+        }
       }
       return;
     }
@@ -347,7 +367,7 @@ function App() {
               value={cityAccessRole}
               onChange={(e) => setCityAccessRole(e.target.value)}
             >
-              <option value="user">User</option>
+              <option value="passenger">Passenger</option>
               <option value="super_admin">Super Admin</option>
             </select>
             {cityAccessRole === "super_admin" && (
@@ -361,7 +381,19 @@ function App() {
                 />
               </>
             )}
-            {cityAccessRole === "user" && (
+            {cityAccessRole === "passenger" && (
+              <>
+            <label className="entry_label">Account Action</label>
+            <select
+              className="entry_select"
+              value={cityPassengerAction}
+              onChange={(e) => setCityPassengerAction(e.target.value)}
+            >
+              <option value="login">Login</option>
+              <option value="create">Create Account</option>
+            </select>
+
+            {cityPassengerAction === "create" && (
               <>
             <label className="entry_label">Name</label>
             <input
@@ -369,21 +401,6 @@ function App() {
               value={cityNameInput}
               onChange={(e) => setCityNameInput(e.target.value)}
               placeholder="Enter full name"
-            />
-            <label className="entry_label">Phone Number</label>
-            <input
-              className="entry_input"
-              value={cityPhoneInput}
-              onChange={(e) => setCityPhoneInput(e.target.value)}
-              placeholder="Enter phone number"
-            />
-            <label className="entry_label">PIN</label>
-            <input
-              className="entry_input"
-              type="password"
-              value={cityPinInput}
-              onChange={(e) => setCityPinInput(e.target.value)}
-              placeholder="Create PIN or login PIN"
             />
             <label className="entry_label">Guardian Name</label>
             <input
@@ -413,23 +430,23 @@ function App() {
               onChange={(e) => setCityGuardianRelationInput(e.target.value)}
               placeholder="Father / Mother / Spouse / Other"
             />
-            {citySuggestions.length > 0 && (
-              <>
-                <label className="entry_label">Nearest Available Stops</label>
-                <div className="entry_suggestions">
-                  {citySuggestions.map((item, idx) => (
-                    <button
-                      key={`${item.stopName}-${idx}`}
-                      className="entry_suggestion_button"
-                      type="button"
-                      onClick={() => setCityFromInput(item.stopName)}
-                    >
-                      {item.stopName} ({item.busNumber})
-                    </button>
-                  ))}
-                </div>
               </>
             )}
+            <label className="entry_label">Phone Number</label>
+            <input
+              className="entry_input"
+              value={cityPhoneInput}
+              onChange={(e) => setCityPhoneInput(e.target.value)}
+              placeholder="Enter phone number"
+            />
+            <label className="entry_label">PIN</label>
+            <input
+              className="entry_input"
+              type="password"
+              value={cityPinInput}
+              onChange={(e) => setCityPinInput(e.target.value)}
+              placeholder={cityPassengerAction === "login" ? "Enter login PIN" : "Create PIN"}
+            />
               </>
             )}
           </>
