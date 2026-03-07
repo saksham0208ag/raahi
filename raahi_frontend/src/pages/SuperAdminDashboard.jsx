@@ -6,6 +6,7 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
   const [activeTab, setActiveTab] = useState("Organizations");
   const [organizations, setOrganizations] = useState([]);
   const [stops, setStops] = useState([]);
+  const [cityRoutes, setCityRoutes] = useState([]);
   const [planCatalog, setPlanCatalog] = useState({});
   const [planDetails, setPlanDetails] = useState({});
   const [loading, setLoading] = useState(true);
@@ -19,6 +20,11 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
   const [stopLatitude, setStopLatitude] = useState("");
   const [stopLongitude, setStopLongitude] = useState("");
   const [stopOrgCode, setStopOrgCode] = useState("");
+  const [cityRouteName, setCityRouteName] = useState("");
+  const [cityRouteStart, setCityRouteStart] = useState("");
+  const [cityRouteEnd, setCityRouteEnd] = useState("");
+  const [cityRouteStops, setCityRouteStops] = useState("");
+  const [cityRouteOrgCode, setCityRouteOrgCode] = useState("");
 
   const headers = { "x-super-admin-key": superAdminKey };
 
@@ -37,6 +43,7 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
     loadOrganizations();
     loadPlans();
     loadStops();
+    loadCityRoutes();
   }, []);
 
   const loadPlans = async () => {
@@ -130,6 +137,50 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
     }
   };
 
+  const loadCityRoutes = async () => {
+    try {
+      const res = await axios.get("/api/super-admin/city-routes", { headers });
+      setCityRoutes(res.data || []);
+    } catch (error) {
+      alert(error?.response?.data?.error || "Failed to load city routes");
+    }
+  };
+
+  const createCityRoute = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(
+        "/api/super-admin/city-routes",
+        {
+          routeName: cityRouteName.trim(),
+          startPoint: cityRouteStart.trim(),
+          endPoint: cityRouteEnd.trim(),
+          stops: cityRouteStops,
+          organizationCode: cityRouteOrgCode.trim().toLowerCase()
+        },
+        { headers }
+      );
+      setCityRouteName("");
+      setCityRouteStart("");
+      setCityRouteEnd("");
+      setCityRouteStops("");
+      setCityRouteOrgCode("");
+      loadCityRoutes();
+    } catch (error) {
+      alert(error?.response?.data?.error || "Failed to create city route");
+    }
+  };
+
+  const deleteCityRoute = async (id) => {
+    if (!window.confirm("Delete this city route?")) return;
+    try {
+      await axios.delete(`/api/super-admin/city-routes/${id}`, { headers });
+      loadCityRoutes();
+    } catch (error) {
+      alert(error?.response?.data?.error || "Failed to delete city route");
+    }
+  };
+
   return (
     <div className="admin_layout">
       <div className="sidebar">
@@ -146,6 +197,12 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
             onClick={() => setActiveTab("Stops")}
           >
             Stops
+          </li>
+          <li
+            className={`sidebar_li ${activeTab === "City Routes" ? "sidebar_li_active" : ""}`}
+            onClick={() => setActiveTab("City Routes")}
+          >
+            City Routes
           </li>
           <li className="sidebar_li" onClick={onLogout}>Logout</li>
         </ul>
@@ -381,6 +438,104 @@ const SuperAdminDashboard = ({ superAdminKey, onLogout }) => {
                               className="pm_header_button"
                               type="button"
                               onClick={() => deleteStop(stop._id)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
+
+        {activeTab === "City Routes" && (
+          <>
+            <section className="passenger_management" style={{ marginBottom: "16px" }}>
+              <div className="pm_header">
+                <h2 className="pm_header_h2">Create City Route</h2>
+              </div>
+              <form className="route_form" onSubmit={createCityRoute}>
+                <input
+                  className="route_input"
+                  placeholder="Route name"
+                  value={cityRouteName}
+                  onChange={(e) => setCityRouteName(e.target.value)}
+                  required
+                />
+                <input
+                  className="route_input"
+                  placeholder="Start point"
+                  value={cityRouteStart}
+                  onChange={(e) => setCityRouteStart(e.target.value)}
+                  required
+                />
+                <input
+                  className="route_input"
+                  placeholder="End point"
+                  value={cityRouteEnd}
+                  onChange={(e) => setCityRouteEnd(e.target.value)}
+                  required
+                />
+                <input
+                  className="route_input"
+                  placeholder="Stops (comma separated)"
+                  value={cityRouteStops}
+                  onChange={(e) => setCityRouteStops(e.target.value)}
+                />
+                <input
+                  className="route_input"
+                  placeholder="Organization code (optional)"
+                  value={cityRouteOrgCode}
+                  onChange={(e) => setCityRouteOrgCode(e.target.value)}
+                />
+                <button className="pm_header_button" type="submit">
+                  Create Route
+                </button>
+              </form>
+            </section>
+
+            <section className="passenger_management">
+              <div className="pm_header">
+                <h2 className="pm_header_h2">All City Routes</h2>
+                <button className="pm_header_button" onClick={loadCityRoutes}>
+                  Refresh
+                </button>
+              </div>
+
+              <div className="route_table_wrap">
+                <table>
+                  <thead className="thead">
+                    <tr>
+                      <th className="th">Route</th>
+                      <th className="th">Start</th>
+                      <th className="th">End</th>
+                      <th className="th">Stops</th>
+                      <th className="th">Organization</th>
+                      <th className="th">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cityRoutes.length === 0 ? (
+                      <tr>
+                        <td className="td" colSpan="6">No city routes found</td>
+                      </tr>
+                    ) : (
+                      cityRoutes.map((route) => (
+                        <tr key={route._id}>
+                          <td className="td">{route.routeName}</td>
+                          <td className="td">{route.startPoint}</td>
+                          <td className="td">{route.endPoint}</td>
+                          <td className="td">{(route.stops || []).join(", ") || "-"}</td>
+                          <td className="td">{route.organizationId?.code || "global"}</td>
+                          <td className="td">
+                            <button
+                              className="pm_header_button"
+                              type="button"
+                              onClick={() => deleteCityRoute(route._id)}
                             >
                               Delete
                             </button>
