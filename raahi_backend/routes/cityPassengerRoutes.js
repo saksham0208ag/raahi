@@ -5,11 +5,8 @@ const Gaurdian = require("../models/Gaurdian");
 const Route = require("../models/Route");
 const Bus = require("../models/Bus");
 const CityPassengerAccount = require("../models/CityPassengerAccount");
-const { requireOrganization } = require("../middleware/organizationContext");
 
 const router = express.Router();
-
-router.use(requireOrganization);
 
 const normalizeText = (value) =>
   String(value || "")
@@ -85,10 +82,13 @@ const scoreStopName = (inputStop, candidateStop) => {
   return Math.max(jaccard * 0.8 + editScore * 0.2, 0);
 };
 
+const withOrgScope = (organizationId, query = {}) =>
+  organizationId ? { ...query, organizationId } : query;
+
 const findBestBusForStop = async ({ organizationId, stopName }) => {
-  const routes = await Route.find({ organizationId }).lean();
+  const routes = await Route.find(withOrgScope(organizationId)).lean();
   let buses = await Bus.find({
-    organizationId,
+    ...withOrgScope(organizationId),
     route: { $exists: true, $ne: null },
     type: "CITY",
     status: { $in: ["running", "active"] }
@@ -98,7 +98,7 @@ const findBestBusForStop = async ({ organizationId, stopName }) => {
 
   if (!buses.length) {
     buses = await Bus.find({
-      organizationId,
+      ...withOrgScope(organizationId),
       route: { $exists: true, $ne: null },
       status: { $in: ["running", "active"] }
     })
@@ -243,7 +243,6 @@ router.post("/auth/register-or-login", async (req, res) => {
     }
 
     const existingAccount = await CityPassengerAccount.findOne({
-      organizationId: req.organizationId,
       phone
     });
 
@@ -253,8 +252,7 @@ router.post("/auth/register-or-login", async (req, res) => {
       }
 
       const passenger = await Passenger.findOne({
-        _id: existingAccount.passengerId,
-        organizationId: req.organizationId
+        _id: existingAccount.passengerId
       })
         .populate("gaurdian bus route");
 
@@ -266,7 +264,7 @@ router.post("/auth/register-or-login", async (req, res) => {
       let routeResult = null;
 
       if (stopName) {
-        routeResult = await findBestBusForStop({ organizationId: req.organizationId, stopName });
+        routeResult = await findBestBusForStop({ organizationId: passenger.organizationId, stopName });
         if (routeResult.found) {
           passenger.stopName = routeResult.selectedStopName;
           passenger.bus = routeResult.bus._id;
@@ -328,8 +326,10 @@ router.post("/auth/register-or-login", async (req, res) => {
       });
     }
 
+    const scopedOrganizationId = routeResult.route?.organizationId || routeResult.bus?.organizationId || req.organizationId || null;
+
     const gaurdian = await Gaurdian.create({
-      organizationId: req.organizationId,
+      organizationId: scopedOrganizationId,
       name: gaurdianName,
       phone: gaurdianPhone,
       email: gaurdianEmail,
@@ -337,7 +337,7 @@ router.post("/auth/register-or-login", async (req, res) => {
     });
 
     const passenger = await Passenger.create({
-      organizationId: req.organizationId,
+      organizationId: scopedOrganizationId,
       passengerType: "city",
       name,
       phone,
@@ -349,7 +349,7 @@ router.post("/auth/register-or-login", async (req, res) => {
     });
 
     await CityPassengerAccount.create({
-      organizationId: req.organizationId,
+      organizationId: scopedOrganizationId,
       passengerId: passenger._id,
       phone,
       pinHash: hashPin(pin)

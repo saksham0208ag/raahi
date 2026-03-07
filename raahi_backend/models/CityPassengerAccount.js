@@ -5,7 +5,6 @@ const cityPassengerAccountSchema = new mongoose.Schema(
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
-      required: true,
       index: true
     },
     passengerId: {
@@ -27,6 +26,6 @@ const cityPassengerAccountSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-cityPassengerAccountSchema.index({ organizationId: 1, phone: 1 }, { unique: true });
+cityPassengerAccountSchema.index({ phone: 1 }, { unique: true });
 
 module.exports = mongoose.model("CityPassengerAccount", cityPassengerAccountSchema);

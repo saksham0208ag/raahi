@@ -7,7 +7,6 @@ import DriverTracking from "./pages/DriverTracking";
 import "./App.css";
 
 function App() {
-  const defaultCityOrganizationCode = (import.meta.env.VITE_CITY_ORGANIZATION_CODE || "").trim().toLowerCase();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [userType, setUserType] = useState("organisation");
   const [orgRole, setOrgRole] = useState("admin");
@@ -70,14 +69,8 @@ function App() {
 
   const handleContinue = async () => {
     if (userType === "city") {
-      const cityOrganizationCode = defaultCityOrganizationCode || organizationCodeInput.trim().toLowerCase();
-      if (!cityOrganizationCode) {
-        alert("City organization code is not configured. Set VITE_CITY_ORGANIZATION_CODE.");
-        return;
-      }
-
       delete axios.defaults.headers.common["x-super-admin-key"];
-      axios.defaults.headers.common["x-organization-code"] = cityOrganizationCode;
+      delete axios.defaults.headers.common["x-organization-code"];
 
       if (!cityPhoneInput.trim() || !cityPinInput.trim()) {
         alert("Phone and PIN are required.");
@@ -249,7 +242,6 @@ function App() {
           onChange={(e) => setUserType(e.target.value)}
         >
           <option value="organisation">Organisation / College</option>
-          <option value="regular">Regular</option>
           <option value="city">City Passenger</option>
           <option value="driver">Driver</option>
           <option value="super_admin">Super Admin</option>
