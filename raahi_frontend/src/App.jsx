@@ -3,6 +3,7 @@ import axios from "axios";
 import AdminDashboard from "./pages/AdminDashboard";
 import BusTracking from "./components/BusTracking";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import CitySuperAdminDashboard from "./pages/CitySuperAdminDashboard";
 import DriverTracking from "./pages/DriverTracking";
 import "./App.css";
 
@@ -88,7 +89,7 @@ function App() {
           await axios.get("/api/organizations", {
             headers: { "x-super-admin-key": superAdminKey }
           });
-          setView("super_admin");
+          setView("city_super_admin");
         } catch (error) {
           alert(error?.response?.data?.error || "Invalid super admin key");
         }
@@ -255,6 +256,13 @@ function App() {
     content = (
       <DriverTracking
         driverProfile={driverProfile}
+        onLogout={() => window.location.reload()}
+      />
+    );
+  } else if (view === "city_super_admin") {
+    content = (
+      <CitySuperAdminDashboard
+        superAdminKey={superAdminKeyInput.trim()}
         onLogout={() => window.location.reload()}
       />
     );
