@@ -14,6 +14,7 @@ function App() {
   const [superAdminKeyInput, setSuperAdminKeyInput] = useState("");
   const [driverCodeInput, setDriverCodeInput] = useState("");
   const [passengerIdInput, setPassengerIdInput] = useState("");
+  const [cityAccessRole, setCityAccessRole] = useState("user");
   const [cityNameInput, setCityNameInput] = useState("");
   const [cityPhoneInput, setCityPhoneInput] = useState("");
   const [cityPinInput, setCityPinInput] = useState("");
@@ -73,6 +74,27 @@ function App() {
 
   const handleContinue = async () => {
     if (userType === "city") {
+      if (cityAccessRole === "super_admin") {
+        const superAdminKey = superAdminKeyInput.trim();
+        if (!superAdminKey) {
+          alert("Super admin key is required.");
+          return;
+        }
+
+        delete axios.defaults.headers.common["x-organization-code"];
+        axios.defaults.headers.common["x-super-admin-key"] = superAdminKey;
+
+        try {
+          await axios.get("/api/organizations", {
+            headers: { "x-super-admin-key": superAdminKey }
+          });
+          setView("super_admin");
+        } catch (error) {
+          alert(error?.response?.data?.error || "Invalid super admin key");
+        }
+        return;
+      }
+
       delete axios.defaults.headers.common["x-super-admin-key"];
       delete axios.defaults.headers.common["x-organization-code"];
 
@@ -239,7 +261,6 @@ function App() {
           <option value="organisation">Organisation / College</option>
           <option value="city">City Passenger</option>
           <option value="driver">Driver</option>
-          <option value="super_admin">Super Admin</option>
         </select>
 
         {userType === "organisation" && (
@@ -320,6 +341,28 @@ function App() {
 
         {userType === "city" && (
           <>
+            <label className="entry_label">City Access Type</label>
+            <select
+              className="entry_select"
+              value={cityAccessRole}
+              onChange={(e) => setCityAccessRole(e.target.value)}
+            >
+              <option value="user">User</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+            {cityAccessRole === "super_admin" && (
+              <>
+                <label className="entry_label">Super Admin Key</label>
+                <input
+                  className="entry_input"
+                  value={superAdminKeyInput}
+                  onChange={(e) => setSuperAdminKeyInput(e.target.value)}
+                  placeholder="Enter super admin key"
+                />
+              </>
+            )}
+            {cityAccessRole === "user" && (
+              <>
             <label className="entry_label">Name</label>
             <input
               className="entry_input"
@@ -385,6 +428,8 @@ function App() {
                     </button>
                   ))}
                 </div>
+              </>
+            )}
               </>
             )}
           </>

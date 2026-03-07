@@ -12,7 +12,9 @@ const DriverTracking = ({ driverProfile, onLogout }) => {
   const [lastCoords, setLastCoords] = useState(null);
 
   const watchIdRef = useRef(null);
+  const heartbeatRef = useRef(null);
   const lastPushMsRef = useRef(0);
+  const latestCoordsRef = useRef(null);
 
   const loadBuses = async () => {
     try {
@@ -38,6 +40,9 @@ const DriverTracking = ({ driverProfile, onLogout }) => {
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      if (heartbeatRef.current !== null) {
+        clearInterval(heartbeatRef.current);
       }
     };
   }, []);
@@ -80,6 +85,7 @@ const DriverTracking = ({ driverProfile, onLogout }) => {
       setStatusText("Starting location sharing...");
       navigator.geolocation.getCurrentPosition(
         async (position) => {
+          latestCoordsRef.current = position.coords;
           await pushLocation(position.coords);
         },
         (error) => {
@@ -91,8 +97,9 @@ const DriverTracking = ({ driverProfile, onLogout }) => {
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (position) => {
+        latestCoordsRef.current = position.coords;
         const nowMs = Date.now();
-        if (nowMs - lastPushMsRef.current < 5000) return;
+        if (nowMs - lastPushMsRef.current < 3000) return;
         lastPushMsRef.current = nowMs;
         try {
           await pushLocation(position.coords);
@@ -104,8 +111,16 @@ const DriverTracking = ({ driverProfile, onLogout }) => {
       (error) => {
         setStatusText(`GPS error: ${error.message}`);
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 3000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
+
+    // Heartbeat keeps backend location fresh even if watch callbacks are sparse.
+    heartbeatRef.current = setInterval(async () => {
+      if (!latestCoordsRef.current) return;
+      try {
+        await pushLocation(latestCoordsRef.current);
+      } catch (_) {}
+    }, 5000);
 
     setSharing(true);
   };
@@ -115,6 +130,11 @@ const DriverTracking = ({ driverProfile, onLogout }) => {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
+    if (heartbeatRef.current !== null) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+    latestCoordsRef.current = null;
     setSharing(false);
     setStatusText("Location sharing stopped");
   };
