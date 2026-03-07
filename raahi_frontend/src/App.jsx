@@ -17,11 +17,13 @@ function App() {
   const [cityNameInput, setCityNameInput] = useState("");
   const [cityPhoneInput, setCityPhoneInput] = useState("");
   const [cityPinInput, setCityPinInput] = useState("");
-  const [cityStopInput, setCityStopInput] = useState("");
   const [cityGuardianNameInput, setCityGuardianNameInput] = useState("");
   const [cityGuardianPhoneInput, setCityGuardianPhoneInput] = useState("");
   const [cityGuardianEmailInput, setCityGuardianEmailInput] = useState("");
   const [cityGuardianRelationInput, setCityGuardianRelationInput] = useState("");
+  const [cityFromInput, setCityFromInput] = useState("");
+  const [cityToInput, setCityToInput] = useState("");
+  const [cityJourneyOptions, setCityJourneyOptions] = useState([]);
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [passengerId, setPassengerId] = useState("");
   const [passengerProfile, setPassengerProfile] = useState(null);
@@ -42,6 +44,7 @@ function App() {
       phone: passenger.phone || "",
       rollNo: passenger.rollNo || "",
       stopName: passenger.stopName || "",
+      destinationStop: passenger.destinationStop || "",
       status: passenger.status || "",
       busId: passenger.bus?._id || passenger.bus || null,
       busNumber: passenger.bus?.busNumber || "",
@@ -76,16 +79,10 @@ function App() {
         alert("Phone and PIN are required.");
         return;
       }
-      if (!cityStopInput.trim()) {
-        alert("Pickup stop is required.");
-        return;
-      }
-
       try {
         const res = await axios.post("/api/city/auth/register-or-login", {
           phone: cityPhoneInput.trim(),
           pin: cityPinInput.trim(),
-          pickupStop: cityStopInput.trim(),
           name: cityNameInput.trim(),
           gaurdianName: cityGuardianNameInput.trim(),
           gaurdianPhone: cityGuardianPhoneInput.trim(),
@@ -104,10 +101,7 @@ function App() {
         setPassengerId(loggedInPassengerId);
         setPassengerProfile(normalizePassengerProfile(directProfile));
         setCitySuggestions([]);
-        if (res.data?.matchType === "nearest" && res.data?.selectedStopName) {
-          alert(`No direct bus for your pickup. Assigned nearest stop: ${res.data.selectedStopName}`);
-        }
-        setView("tracking");
+        setView("city_journey");
       } catch (error) {
         const suggestions = error?.response?.data?.suggestions || [];
         setCitySuggestions(suggestions);
@@ -347,13 +341,6 @@ function App() {
               onChange={(e) => setCityPinInput(e.target.value)}
               placeholder="Create PIN or login PIN"
             />
-            <label className="entry_label">Pickup Stop</label>
-            <input
-              className="entry_input"
-              value={cityStopInput}
-              onChange={(e) => setCityStopInput(e.target.value)}
-              placeholder="Enter pickup stop (can change every login)"
-            />
             <label className="entry_label">Guardian Name</label>
             <input
               className="entry_input"
@@ -391,7 +378,7 @@ function App() {
                       key={`${item.stopName}-${idx}`}
                       className="entry_suggestion_button"
                       type="button"
-                      onClick={() => setCityStopInput(item.stopName)}
+                      onClick={() => setCityFromInput(item.stopName)}
                     >
                       {item.stopName} ({item.busNumber})
                     </button>
@@ -412,6 +399,90 @@ function App() {
         </p>
       </div>
     </div>
+    );
+  }
+
+  if (view === "city_journey") {
+    content = (
+      <div className="entry">
+        <div className="entry_card">
+          <h2 className="entry_title">City Ride Search</h2>
+          <label className="entry_label">From</label>
+          <input
+            className="entry_input"
+            value={cityFromInput}
+            onChange={(e) => setCityFromInput(e.target.value)}
+            placeholder="Enter pickup location"
+          />
+          <label className="entry_label">To</label>
+          <input
+            className="entry_input"
+            value={cityToInput}
+            onChange={(e) => setCityToInput(e.target.value)}
+            placeholder="Enter destination"
+          />
+          <button
+            className="entry_button"
+            onClick={async () => {
+              if (!cityFromInput.trim() || !cityToInput.trim()) {
+                alert("Please enter From and To locations.");
+                return;
+              }
+              try {
+                const res = await axios.post("/api/city/journey/search", {
+                  passengerId,
+                  fromStop: cityFromInput.trim(),
+                  toStop: cityToInput.trim()
+                });
+                setCityJourneyOptions(res.data?.options || []);
+              } catch (error) {
+                setCityJourneyOptions([]);
+                alert(error?.response?.data?.error || "No matching rides found");
+              }
+            }}
+          >
+            Search Rides
+          </button>
+
+          {cityJourneyOptions.length > 0 && (
+            <div className="entry_suggestions">
+              {cityJourneyOptions.map((option) => (
+                <button
+                  key={`${option.routeId}-${option.busId}`}
+                  className="entry_suggestion_button"
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await axios.post("/api/city/journey/select", {
+                        passengerId,
+                        routeId: option.routeId,
+                        busId: option.busId,
+                        fromStopMatched: option.fromStopMatched,
+                        toStopMatched: option.toStopMatched
+                      });
+                      setPassengerProfile(normalizePassengerProfile(res.data?.passengerDetails));
+                      setView("tracking");
+                    } catch (error) {
+                      alert(error?.response?.data?.error || "Failed to select this ride");
+                    }
+                  }}
+                >
+                  {option.fromStopMatched} {"->"} {option.toStopMatched} {"|"} Bus {option.busNumber} {"|"} {option.routeName}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <button
+            className="entry_button"
+            onClick={() => {
+              setView("selector");
+            }}
+          >
+            Back
+          </button>
+        </div>
+      </div>
     );
   }
 

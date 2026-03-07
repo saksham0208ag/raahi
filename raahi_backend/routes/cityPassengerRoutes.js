@@ -182,6 +182,67 @@ const findBestBusForStop = async ({ organizationId, stopName }) => {
   };
 };
 
+const findJourneyOptions = async ({ organizationId, fromStop, toStop }) => {
+  const routes = await Route.find(withOrgScope(organizationId)).lean();
+  let buses = await Bus.find({
+    ...withOrgScope(organizationId),
+    route: { $exists: true, $ne: null },
+    type: "CITY",
+    status: { $in: ["running", "active"] }
+  })
+    .populate("route")
+    .lean();
+
+  if (!buses.length) {
+    buses = await Bus.find({
+      ...withOrgScope(organizationId),
+      route: { $exists: true, $ne: null },
+      status: { $in: ["running", "active"] }
+    })
+      .populate("route")
+      .lean();
+  }
+
+  const busByRouteId = new Map();
+  buses.forEach((bus) => {
+    if (bus.route?._id) busByRouteId.set(String(bus.route._id), bus);
+  });
+
+  const options = [];
+  routes.forEach((route) => {
+    const bus = busByRouteId.get(String(route._id));
+    if (!bus) return;
+    const routeStops = extractRouteStops(route);
+    if (!routeStops.length) return;
+
+    let bestFrom = { stop: "", score: 0 };
+    let bestTo = { stop: "", score: 0 };
+    routeStops.forEach((stop) => {
+      const fromScore = scoreStopName(fromStop, stop);
+      const toScore = scoreStopName(toStop, stop);
+      if (fromScore > bestFrom.score) bestFrom = { stop, score: fromScore };
+      if (toScore > bestTo.score) bestTo = { stop, score: toScore };
+    });
+
+    if (bestFrom.score < 0.35 || bestTo.score < 0.35 || normalizeText(bestFrom.stop) === normalizeText(bestTo.stop)) {
+      return;
+    }
+
+    const totalScore = Number((((bestFrom.score + bestTo.score) / 2) * 100).toFixed(1));
+    options.push({
+      routeId: route._id,
+      routeName: route.routeName,
+      busId: bus._id,
+      busNumber: bus.busNumber,
+      fromStopMatched: bestFrom.stop,
+      toStopMatched: bestTo.stop,
+      confidence: totalScore
+    });
+  });
+
+  return options.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+};
+
 const toPassengerDetails = (passenger) => ({
   id: passenger._id,
   name: passenger.name || "",
@@ -189,6 +250,7 @@ const toPassengerDetails = (passenger) => ({
   phone: passenger.phone || "",
   rollNo: passenger.rollNo || "",
   stopName: passenger.stopName || "",
+  destinationStop: passenger.destinationStop || "",
   status: passenger.status || "active",
   busId: passenger.bus?._id || null,
   busNumber: passenger.bus?.busNumber || "",
@@ -260,18 +322,6 @@ router.post("/auth/register-or-login", async (req, res) => {
         return res.status(404).json({ error: "Passenger profile not found for this account" });
       }
 
-      const stopName = String(req.body.pickupStop || req.body.stopName || "").trim();
-      let routeResult = null;
-
-      if (stopName) {
-        routeResult = await findBestBusForStop({ organizationId: passenger.organizationId, stopName });
-        if (routeResult.found) {
-          passenger.stopName = routeResult.selectedStopName;
-          passenger.bus = routeResult.bus._id;
-          passenger.route = routeResult.route._id;
-        }
-      }
-
       if (req.body.name) {
         passenger.name = String(req.body.name).trim();
       }
@@ -294,9 +344,9 @@ router.post("/auth/register-or-login", async (req, res) => {
       return res.json({
         created: false,
         message: "Login successful",
-        matchType: routeResult?.matchType || "current",
-        selectedStopName: routeResult?.selectedStopName || updatedPassenger.stopName,
-        suggestions: routeResult?.suggestions || [],
+        matchType: "current",
+        selectedStopName: updatedPassenger.stopName || "",
+        suggestions: [],
         passengerId: updatedPassenger._id,
         busId: updatedPassenger.bus?._id || null,
         passengerDetails: toPassengerDetails(updatedPassenger)
@@ -304,29 +354,18 @@ router.post("/auth/register-or-login", async (req, res) => {
     }
 
     const name = String(req.body.name || "").trim();
-    const stopName = String(req.body.pickupStop || req.body.stopName || "").trim();
     const gaurdianName = String(req.body.gaurdianName || "").trim();
     const gaurdianPhone = String(req.body.gaurdianPhone || "").trim();
     const gaurdianEmailRaw = String(req.body.gaurdianEmail || "").trim().toLowerCase();
     const gaurdianEmail = gaurdianEmailRaw || `guardian-${phone}@raahi.local`;
     const gaurdianRelation = String(req.body.gaurdianRelation || "").trim();
 
-    if (!name || !stopName || !gaurdianName || !gaurdianPhone) {
+    if (!name || !gaurdianName || !gaurdianPhone) {
       return res.status(400).json({
-        error: "name, pickupStop, gaurdianName and gaurdianPhone are required for new city passengers"
+        error: "name, gaurdianName and gaurdianPhone are required for new city passengers"
       });
     }
-
-    const routeResult = await findBestBusForStop({ organizationId: req.organizationId, stopName });
-    if (!routeResult.found) {
-      return res.status(404).json({
-        error: "No bus is available from this stop right now",
-        reason: routeResult.reason,
-        suggestions: routeResult.suggestions || []
-      });
-    }
-
-    const scopedOrganizationId = routeResult.route?.organizationId || routeResult.bus?.organizationId || req.organizationId || null;
+    const scopedOrganizationId = req.organizationId || null;
 
     const gaurdian = await Gaurdian.create({
       organizationId: scopedOrganizationId,
@@ -341,9 +380,8 @@ router.post("/auth/register-or-login", async (req, res) => {
       passengerType: "city",
       name,
       phone,
-      stopName: routeResult.selectedStopName,
-      bus: routeResult.bus._id,
-      route: routeResult.route._id,
+      stopName: "",
+      destinationStop: "",
       gaurdian: gaurdian._id,
       status: "active"
     });
@@ -359,15 +397,93 @@ router.post("/auth/register-or-login", async (req, res) => {
     return res.status(201).json({
       created: true,
       message: "City passenger account created",
-      matchType: routeResult.matchType,
-      selectedStopName: routeResult.selectedStopName,
-      suggestions: routeResult.suggestions || [],
+      matchType: "none",
+      selectedStopName: "",
+      suggestions: [],
       passengerId: savedPassenger._id,
       busId: savedPassenger.bus?._id || null,
       passengerDetails: toPassengerDetails(savedPassenger)
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+router.post("/journey/search", async (req, res) => {
+  try {
+    const passengerId = String(req.body.passengerId || "").trim();
+    const fromStop = String(req.body.fromStop || "").trim();
+    const toStop = String(req.body.toStop || "").trim();
+
+    if (!passengerId || !fromStop || !toStop) {
+      return res.status(400).json({ error: "passengerId, fromStop and toStop are required" });
+    }
+
+    const passenger = await Passenger.findById(passengerId);
+    if (!passenger || passenger.passengerType !== "city") {
+      return res.status(404).json({ error: "City passenger not found" });
+    }
+
+    const options = await findJourneyOptions({
+      organizationId: passenger.organizationId || null,
+      fromStop,
+      toStop
+    });
+
+    if (!options.length) {
+      return res.status(404).json({
+        error: "No bus route found for this journey",
+        options: []
+      });
+    }
+
+    return res.json({ options });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+});
+
+router.post("/journey/select", async (req, res) => {
+  try {
+    const passengerId = String(req.body.passengerId || "").trim();
+    const routeId = String(req.body.routeId || "").trim();
+    const busId = String(req.body.busId || "").trim();
+    const fromStopMatched = String(req.body.fromStopMatched || req.body.fromStop || "").trim();
+    const toStopMatched = String(req.body.toStopMatched || req.body.toStop || "").trim();
+
+    if (!passengerId || !routeId || !busId || !fromStopMatched || !toStopMatched) {
+      return res.status(400).json({ error: "passengerId, routeId, busId, fromStopMatched and toStopMatched are required" });
+    }
+
+    const passenger = await Passenger.findById(passengerId);
+    if (!passenger || passenger.passengerType !== "city") {
+      return res.status(404).json({ error: "City passenger not found" });
+    }
+
+    const route = await Route.findById(routeId);
+    const bus = await Bus.findById(busId);
+    if (!route || !bus || String(bus.route || "") !== String(route._id)) {
+      return res.status(400).json({ error: "Invalid journey selection" });
+    }
+
+    passenger.stopName = fromStopMatched;
+    passenger.destinationStop = toStopMatched;
+    passenger.route = route._id;
+    passenger.bus = bus._id;
+    if (!passenger.organizationId && route.organizationId) {
+      passenger.organizationId = route.organizationId;
+    }
+    await passenger.save();
+
+    const updatedPassenger = await Passenger.findById(passenger._id).populate("gaurdian bus route");
+    return res.json({
+      message: "Journey selected",
+      passengerId: updatedPassenger._id,
+      busId: updatedPassenger.bus?._id || null,
+      passengerDetails: toPassengerDetails(updatedPassenger)
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
   }
 });
 

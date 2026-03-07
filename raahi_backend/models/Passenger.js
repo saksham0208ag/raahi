@@ -28,7 +28,16 @@ phone:{
 },
 stopName:{
     type:String,
-    required:true
+    required:function(){
+        return this.passengerType !== "city";
+    },
+    trim:true,
+    default:""
+},
+destinationStop:{
+    type:String,
+    trim:true,
+    default:""
 },
 bus:{
     type:mongoose.Schema.Types.ObjectId,
