@@ -296,6 +296,7 @@ function App() {
           onChange={(e) => setUserType(e.target.value)}
         >
           <option value="organisation">Organisation / College</option>
+          <option value="super_admin">Super Admin</option>
           <option value="city">City Passenger</option>
           <option value="driver">Driver</option>
         </select>
