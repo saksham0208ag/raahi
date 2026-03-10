@@ -8,6 +8,8 @@
   --input-border: #cbd5e1;
   --brand: #0ea5e9;
   --brand-hover: #0284c7;
+  --support: #22c55e;
+  --support-hover: #16a34a;
 }
 
 [data-theme="dark"] {
@@ -20,6 +22,8 @@
   --input-border: #475569;
   --brand: #22d3ee;
   --brand-hover: #06b6d4;
+  --support: #34d399;
+  --support-hover: #22c55e;
 }
 
 .entry {
@@ -178,4 +182,36 @@
 .entry_suggestion_button:hover {
   border-color: var(--brand);
   color: var(--brand);
+}
+
+.support_chat_button {
+  position: fixed;
+  right: 20px;
+  bottom: 56px;
+  z-index: 2100;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  color: #ffffff;
+  background: var(--support);
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.3);
+}
+
+.support_chat_button:hover {
+  background: var(--support-hover);
+}
+
+@media (max-width: 480px) {
+  .support_chat_button {
+    right: 16px;
+    bottom: 70px;
+    font-size: 13px;
+    padding: 9px 12px;
+  }
 }

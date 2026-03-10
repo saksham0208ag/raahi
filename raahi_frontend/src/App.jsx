@@ -32,6 +32,11 @@ function App() {
   const [passengerProfile, setPassengerProfile] = useState(null);
   const [driverProfile, setDriverProfile] = useState(null);
   const [view, setView] = useState("selector");
+  const supportWhatsappPhone = "91XXXXXXXXXX";
+  const supportWhatsappMessage = "Hi, I need help with Raahi login.";
+  const supportWhatsappLink = `https://wa.me/${supportWhatsappPhone}?text=${encodeURIComponent(
+    supportWhatsappMessage
+  )}`;
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -78,24 +83,26 @@ function App() {
       if (cityAccessRole === "super_admin") {
         const superAdminKey = superAdminKeyInput.trim();
         if (!superAdminKey) {
-          alert("Super admin key is required.");
+          alert("City super admin key is required.");
           return;
         }
 
+        delete axios.defaults.headers.common["x-super-admin-key"];
         delete axios.defaults.headers.common["x-organization-code"];
-        axios.defaults.headers.common["x-super-admin-key"] = superAdminKey;
+        axios.defaults.headers.common["x-city-super-admin-key"] = superAdminKey;
 
         try {
-          await axios.get("/api/organizations", {
-            headers: { "x-super-admin-key": superAdminKey }
+          await axios.get("/api/city-super-admin/routes/auth/validate", {
+            headers: { "x-city-super-admin-key": superAdminKey }
           });
           setView("city_super_admin");
         } catch (error) {
-          alert(error?.response?.data?.error || "Invalid super admin key");
+          alert(error?.response?.data?.error || "Invalid city super admin key");
         }
         return;
       }
 
+      delete axios.defaults.headers.common["x-city-super-admin-key"];
       delete axios.defaults.headers.common["x-super-admin-key"];
       delete axios.defaults.headers.common["x-organization-code"];
 
@@ -161,6 +168,7 @@ function App() {
         return;
       }
 
+      delete axios.defaults.headers.common["x-city-super-admin-key"];
       delete axios.defaults.headers.common["x-organization-code"];
       axios.defaults.headers.common["x-super-admin-key"] = superAdminKey;
 
@@ -181,6 +189,7 @@ function App() {
       return;
     }
 
+    delete axios.defaults.headers.common["x-city-super-admin-key"];
     delete axios.defaults.headers.common["x-super-admin-key"];
     axios.defaults.headers.common["x-organization-code"] = organizationCode;
 
@@ -380,12 +389,12 @@ function App() {
             </select>
             {cityAccessRole === "super_admin" && (
               <>
-                <label className="entry_label">Super Admin Key</label>
+                <label className="entry_label">City Super Admin Key</label>
                 <input
                   className="entry_input"
                   value={superAdminKeyInput}
                   onChange={(e) => setSuperAdminKeyInput(e.target.value)}
-                  placeholder="Enter super admin key"
+                  placeholder="Enter city super admin key"
                 />
               </>
             )}
@@ -469,6 +478,15 @@ function App() {
           Copyright is secured by the developers: Saksham Agarwal, Khushi Jangid, and Mohit Kumar.
         </p>
       </div>
+      <a
+        className="support_chat_button"
+        href={supportWhatsappLink}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Chat on WhatsApp for login help"
+      >
+        Chat on WhatsApp
+      </a>
     </div>
     );
   }
