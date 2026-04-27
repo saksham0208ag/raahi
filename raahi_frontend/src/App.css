@@ -12,6 +12,26 @@
   --support-hover: #16a34a;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+  background: linear-gradient(135deg, var(--entry-bg-start), var(--entry-bg-end));
+}
+
+#root {
+  min-height: 100vh;
+}
+
 [data-theme="dark"] {
   --entry-bg-start: #0f172a;
   --entry-bg-end: #111827;
@@ -31,7 +51,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: clamp(20px, 5vw, 40px);
+  padding-bottom: 110px;
   background: linear-gradient(135deg, var(--entry-bg-start), var(--entry-bg-end));
   position: relative;
   overflow: hidden;
@@ -39,17 +60,17 @@
 
 .entry_card {
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: 20px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-  padding: 24px;
+  padding: clamp(20px, 4vw, 30px);
 }
 
 .entry_title {
   margin: 0 0 16px;
-  font-size: 22px;
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
   color: var(--text-primary);
 }
 
@@ -63,9 +84,10 @@
 .entry_select {
   width: 100%;
   border: 1px solid var(--input-border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
   outline: none;
   background: var(--card-bg);
   color: var(--text-primary);
@@ -74,9 +96,10 @@
 .entry_input {
   width: 100%;
   border: 1px solid var(--input-border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
   outline: none;
   background: var(--card-bg);
   color: var(--text-primary);
@@ -94,12 +117,14 @@
   width: 100%;
   margin-top: 18px;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--brand);
   color: #ffffff;
   font-weight: 600;
-  padding: 10px 12px;
+  min-height: 48px;
+  padding: 12px 14px;
   cursor: pointer;
+  font-size: 0.96rem;
 }
 
 .entry_button:hover {
@@ -115,7 +140,7 @@
   background: var(--card-bg);
   color: var(--text-primary);
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   cursor: pointer;
   font-weight: 600;
 }
@@ -173,8 +198,9 @@
   border: 1px dashed var(--input-border);
   background: transparent;
   color: var(--text-primary);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -207,11 +233,52 @@
   background: var(--support-hover);
 }
 
+@media (max-width: 768px) {
+  .entry {
+    align-items: flex-start;
+    padding-top: 72px;
+  }
+
+  .entry_card {
+    max-width: none;
+  }
+
+  .entry_ticker {
+    height: 34px;
+  }
+
+  .entry_ticker_text {
+    font-size: 12px;
+    animation-duration: 24s;
+  }
+}
+
 @media (max-width: 480px) {
-  .support_chat_button {
-    right: 16px;
-    bottom: 70px;
-    font-size: 13px;
+  .entry {
+    padding: 68px 14px 108px;
+  }
+
+  .entry_card {
+    border-radius: 16px;
+    padding: 18px 16px;
+  }
+
+  .entry_title {
+    margin-bottom: 14px;
+  }
+
+  .theme_toggle {
+    top: 10px;
+    right: 10px;
     padding: 9px 12px;
+    font-size: 0.82rem;
+  }
+
+  .support_chat_button {
+    left: 14px;
+    right: 14px;
+    bottom: 70px;
+    font-size: 0.86rem;
+    padding: 11px 12px;
   }
 }
