@@ -106,13 +106,18 @@ function App() {
       delete axios.defaults.headers.common["x-super-admin-key"];
       delete axios.defaults.headers.common["x-organization-code"];
 
-      if (!cityPhoneInput.trim() || !cityPinInput.trim()) {
-        alert("Phone and PIN are required.");
-        return;
-      }
       try {
+        if (cityPassengerAction === "login") {
+          if (!cityNameInput.trim() || !cityPinInput.trim()) {
+            alert("Name and PIN are required.");
+            return;
+          }
+        } else if (!cityPhoneInput.trim() || !cityPinInput.trim()) {
+          alert("Phone and PIN are required.");
+          return;
+        }
+
         const cityAuthPayload = {
-          phone: cityPhoneInput.trim(),
           pin: cityPinInput.trim()
         };
 
@@ -122,10 +127,13 @@ function App() {
             return;
           }
           cityAuthPayload.name = cityNameInput.trim();
+          cityAuthPayload.phone = cityPhoneInput.trim();
           cityAuthPayload.gaurdianName = cityGuardianNameInput.trim();
           cityAuthPayload.gaurdianPhone = cityGuardianPhoneInput.trim();
           cityAuthPayload.gaurdianEmail = cityGuardianEmailInput.trim();
           cityAuthPayload.gaurdianRelation = cityGuardianRelationInput.trim();
+        } else {
+          cityAuthPayload.name = cityNameInput.trim();
         }
 
         const res = await axios.post("/api/city/auth/register-or-login", cityAuthPayload);
@@ -448,8 +456,6 @@ function App() {
               onChange={(e) => setCityGuardianRelationInput(e.target.value)}
               placeholder="Father / Mother / Spouse / Other"
             />
-              </>
-            )}
             <label className="entry_label">Phone Number</label>
             <input
               className="entry_input"
@@ -457,6 +463,19 @@ function App() {
               onChange={(e) => setCityPhoneInput(e.target.value)}
               placeholder="Enter phone number"
             />
+              </>
+            )}
+            {cityPassengerAction === "login" && (
+              <>
+                <label className="entry_label">Name</label>
+                <input
+                  className="entry_input"
+                  value={cityNameInput}
+                  onChange={(e) => setCityNameInput(e.target.value)}
+                  placeholder="Enter full name"
+                />
+              </>
+            )}
             <label className="entry_label">PIN</label>
             <input
               className="entry_input"

@@ -18,7 +18,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
   const [cityRouteStops, setCityRouteStops] = useState("");
   const [cityRouteOrgCode, setCityRouteOrgCode] = useState("");
 
-  const headers = { "x-super-admin-key": superAdminKey };
+  const headers = { "x-city-super-admin-key": superAdminKey };
 
   useEffect(() => {
     loadStops();
@@ -27,7 +27,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
 
   const loadStops = async () => {
     try {
-      const res = await axios.get("/api/super-admin/stops", { headers });
+      const res = await axios.get("/api/city-super-admin/stops", { headers });
       setStops(res.data || []);
     } catch (error) {
       alert(error?.response?.data?.error || "Failed to load stops");
@@ -36,7 +36,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
 
   const loadCityRoutes = async () => {
     try {
-      const res = await axios.get("/api/super-admin/city-routes", { headers });
+      const res = await axios.get("/api/city-super-admin/routes", { headers });
       setCityRoutes(res.data || []);
     } catch (error) {
       alert(error?.response?.data?.error || "Failed to load city routes");
@@ -47,7 +47,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
     e.preventDefault();
     try {
       await axios.post(
-        "/api/super-admin/stops",
+        "/api/city-super-admin/stops",
         {
           name: stopName.trim(),
           city: stopCity.trim(),
@@ -73,7 +73,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
   const deleteStop = async (id) => {
     if (!window.confirm("Delete this stop?")) return;
     try {
-      await axios.delete(`/api/super-admin/stops/${id}`, { headers });
+      await axios.delete(`/api/city-super-admin/stops/${id}`, { headers });
       loadStops();
     } catch (error) {
       alert(error?.response?.data?.error || "Failed to delete stop");
@@ -84,7 +84,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
     e.preventDefault();
     try {
       await axios.post(
-        "/api/super-admin/city-routes",
+        "/api/city-super-admin/routes",
         {
           routeName: cityRouteName.trim(),
           startPoint: cityRouteStart.trim(),
@@ -108,7 +108,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
   const deleteCityRoute = async (id) => {
     if (!window.confirm("Delete this city route?")) return;
     try {
-      await axios.delete(`/api/super-admin/city-routes/${id}`, { headers });
+      await axios.delete(`/api/city-super-admin/routes/${id}`, { headers });
       loadCityRoutes();
     } catch (error) {
       alert(error?.response?.data?.error || "Failed to delete city route");
@@ -221,7 +221,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
                         <tr key={stop._id}>
                           <td className="td">{stop.name}</td>
                           <td className="td">{stop.city || "-"}</td>
-                          <td className="td">{stop.organizationId?.code || "global"}</td>
+                          <td className="td">{stop.organizationCode || "global"}</td>
                           <td className="td">{stop.location?.coordinates?.[1] ?? "-"}</td>
                           <td className="td">{stop.location?.coordinates?.[0] ?? "-"}</td>
                           <td className="td">
@@ -321,7 +321,7 @@ const CitySuperAdminDashboard = ({ superAdminKey, onLogout }) => {
                           <td className="td">{route.startPoint}</td>
                           <td className="td">{route.endPoint}</td>
                           <td className="td">{(route.stops || []).join(", ") || "-"}</td>
-                          <td className="td">{route.organizationId?.code || "global"}</td>
+                          <td className="td">{route.organizationCode || "global"}</td>
                           <td className="td">
                             <button
                               className="pm_header_button"

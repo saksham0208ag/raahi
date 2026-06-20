@@ -17,6 +17,7 @@ const normalizeText = (value) =>
     .replace(/\s+/g, " ");
 
 const normalizePhone = (value) => String(value || "").replace(/[^\d+]/g, "");
+const escapeRegExp = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const hashPin = (pin) => {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -322,14 +323,32 @@ router.post("/auth/register-or-login", async (req, res) => {
   try {
     const phone = normalizePhone(req.body.phone);
     const pin = String(req.body.pin || "").trim();
+    const nameInput = String(req.body.name || "").trim();
 
-    if (!phone || !pin) {
-      return res.status(400).json({ error: "phone and pin are required" });
+    if (!pin || (!phone && !nameInput)) {
+      return res.status(400).json({ error: "name (or phone) and pin are required" });
     }
 
-    const existingAccount = await CityPassengerAccount.findOne({
-      phone
-    });
+    let existingAccount = null;
+    if (phone) {
+      existingAccount = await CityPassengerAccount.findOne({ phone });
+    } else {
+      const nameRegex = new RegExp(`^${escapeRegExp(nameInput)}$`, "i");
+      const candidates = await Passenger.find({
+        passengerType: "city",
+        name: nameRegex,
+        ...(req.organizationId ? { organizationId: req.organizationId } : {})
+      }).select("_id");
+      if (!candidates.length) {
+        return res.status(404).json({ error: "City passenger account not found for this name" });
+      }
+      if (candidates.length > 1) {
+        return res.status(409).json({
+          error: "Multiple passengers match this name. Please login with phone."
+        });
+      }
+      existingAccount = await CityPassengerAccount.findOne({ passengerId: candidates[0]._id });
+    }
 
     if (existingAccount) {
       if (!verifyPin(pin, existingAccount.pinHash)) {
@@ -374,6 +393,10 @@ router.post("/auth/register-or-login", async (req, res) => {
         busId: updatedPassenger.bus?._id || null,
         passengerDetails: toPassengerDetails(updatedPassenger)
       });
+    }
+
+    if (!phone) {
+      return res.status(404).json({ error: "City passenger account not found. Please create an account." });
     }
 
     const name = String(req.body.name || "").trim();
